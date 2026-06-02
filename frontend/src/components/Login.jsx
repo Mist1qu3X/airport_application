@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { toast } from 'react-toastify';
 
 export default function Login() {
   const [username, setUsername] = useState('');
@@ -12,8 +13,11 @@ export default function Login() {
     e.preventDefault();
     try {
       await login(username, password);
+      toast.success('Добро пожаловать!');
       navigate('/');
-    } catch { alert('Ошибка входа'); }
+    } catch {
+      toast.error('Ошибка входа');
+    }
   };
 
   return (

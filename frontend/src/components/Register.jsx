@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { toast } from 'react-toastify';
 
 export default function Register() {
   const [username, setUsername] = useState('');
@@ -13,9 +14,10 @@ export default function Register() {
     e.preventDefault();
     try {
       await register(username, password, fullName);
+      toast.success('Регистрация успешна!');
       navigate('/');
-    } catch (err) {
-      alert('Ошибка регистрации');
+    } catch {
+      toast.error('Ошибка регистрации');
     }
   };
 

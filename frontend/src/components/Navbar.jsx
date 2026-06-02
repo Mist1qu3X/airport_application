@@ -1,11 +1,16 @@
 import { Link, useNavigate } from 'react-router-dom';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faSun, faMoon } from '@fortawesome/free-solid-svg-icons';
 import { useAuth } from '../contexts/AuthContext';
 
-export default function Navbar() {
+export default function Navbar({ darkMode, toggleDarkMode }) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
 
-  const handleLogout = () => { logout(); navigate('/'); };
+  const handleLogout = () => {
+    logout();
+    navigate('/');
+  };
 
   return (
     <nav className="navbar">
@@ -15,6 +20,16 @@ export default function Navbar() {
           <span className="logo-text">SkyControl</span>
         </Link>
         <div className="nav-links">
+          <button 
+            className="theme-toggle" 
+            onClick={toggleDarkMode}
+            title={darkMode ? 'Светлая тема' : 'Тёмная тема'}
+          >
+            <FontAwesomeIcon 
+              icon={darkMode ? faSun : faMoon} 
+              className="theme-icon"
+            />
+          </button>
           {user ? (
             <>
               <Link to="/profile" className="nav-link">

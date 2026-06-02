@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { createPortal } from 'react-dom';
+import { toast } from 'react-toastify';
 import api from '../api';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -24,10 +25,10 @@ export default function SeatMap({ flight, onClose }) {
         seat_number: selectedSeat,
         use_bonuses: useBonuses ? Math.min(maxBonuses, bonusesAvailable) : 0
       });
-      alert(`Билет куплен! Начислено бонусов: ${res.data.bonuses_earned}`);
+      toast.success(`Билет куплен! Начислено бонусов: ${res.data.bonuses_earned}`);
       onClose();
     } catch (err) {
-      alert(err.response?.data?.detail || 'Ошибка при покупке');
+      toast.error(err.response?.data?.detail || 'Ошибка при покупке');
     } finally {
       setLoading(false);
     }

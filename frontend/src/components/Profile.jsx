@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import api from '../api';
 import { useAuth } from '../contexts/AuthContext';
+import { toast } from 'react-toastify';
 
 export default function Profile() {
   const { user } = useAuth();
@@ -17,10 +18,10 @@ export default function Profile() {
     if (!window.confirm('Вернуть билет? Будет списана часть бонусов.')) return;
     try {
       const res = await api.delete(`/api/tickets/${ticketId}`);
-      alert(res.data.msg);
+      toast.success(res.data.msg);
       setTickets(tickets.filter(t => t.id !== ticketId));
     } catch (err) {
-      alert(err.response?.data?.detail || 'Ошибка');
+      toast.error(err.response?.data?.detail || 'Ошибка');
     }
   };
 
@@ -42,7 +43,7 @@ export default function Profile() {
 
   return (
     <div className="profile-page animate-fade-in">
-      <h2>👤 Личный кабинет</h2>
+      <h2>Личный кабинет</h2>
 
       {/* Карточка профиля */}
       <div className="card profile-card">
@@ -71,7 +72,7 @@ export default function Profile() {
 
       {/* Бонусная программа */}
       <div className="card" style={{ marginBottom: '20px', padding: '20px' }}>
-        <h3>⭐ Бонусная программа</h3>
+        <h3>Бонусная программа</h3>
         <p style={{ color: 'var(--text-secondary)', marginBottom: '12px' }}>
           За каждую покупку начисляется 5% от стоимости билета. Бонусами можно оплатить до 50% цены.
         </p>

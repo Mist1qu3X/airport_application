@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import api from '../api';
 import SeatMap from './SeatMap';
+import PriceCalendar from './PriceCalendar';
 
 const TIME_OPTIONS = [
   { value: 'any', label: 'Любое' },
@@ -171,6 +172,13 @@ export default function FlightResults() {
                 />
               </div>
             </div>
+            
+            {searchParams.get('origin') && searchParams.get('destination') && (
+              <PriceCalendar 
+                origin={searchParams.get('origin')} 
+                destination={searchParams.get('destination')} 
+              />
+            )}
 
             {/* Время вылета */}
             <div className="filter-group">
@@ -223,7 +231,6 @@ export default function FlightResults() {
       {/* Список рейсов */}
       {flights.length === 0 && (
         <div className="empty-state card">
-          <div className="empty-icon">🔍</div>
           <h3>Рейсы не найдены</h3>
           <p>Попробуйте изменить параметры поиска</p>
         </div>

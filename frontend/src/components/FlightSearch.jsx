@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import FavoriteRoutes from './FavoriteRoutes';
 
 const popularDirections = [
   { from: 'Москва', to: 'Сочи', price: 4200 },
@@ -56,10 +57,11 @@ export default function FlightSearch() {
           </div>
         </div>
         <button className="btn btn-secondary search-btn" onClick={handleSearch}>
-          🔍 Найти билеты
+          Найти билеты
         </button>
       </div>
 
+      <FavoriteRoutes />
       <div className="popular-section">
         <h2 className="section-title">Популярные направления</h2>
         <div className="popular-grid">
