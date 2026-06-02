@@ -219,9 +219,9 @@ h1, h2, h3 { font-weight: 700; line-height: 1.3; }
   background: var(--bg-white);
   border-radius: 16px;
   padding: 24px;
-  max-width: 420px;
-  width: 90%;
-  max-height: 85vh;
+  max-width: 500px;
+  width: 95%;
+  max-height: 90vh;
   overflow-y: auto;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
   position: relative;
@@ -240,37 +240,30 @@ h1, h2, h3 { font-weight: 700; line-height: 1.3; }
 .seat-legend {
   display: flex;
   justify-content: center;
-  gap: 16px;
-  margin-bottom: 16px;
-  font-size: 0.85rem;
+  gap: 12px;
+  margin-bottom: 12px;
+  font-size: 0.75rem;
   flex-wrap: wrap;
 }
 
 .seat-legend span {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
 }
 
 .leg {
-  width: 16px;
-  height: 16px;
-  border-radius: 4px;
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
   display: inline-block;
 }
 
-.leg.free {
-  background: #e8e8e8;
-  border: 1px solid #ccc;
-}
-
-.leg.selected {
-  background: var(--primary);
-}
-
-.leg.occupied {
-  background: #999;
-}
+.leg.free { background: #e8e8e8; border: 1px solid #ccc; }
+.leg.business-legend { background: #f0e68c; border: 1px solid #d4c77a; }
+.leg.extra-legroom { background: #c8e6c9; border: 1px solid #a5d6a7; }
+.leg.selected { background: var(--primary); }
+.leg.occupied { background: #999; }
 
 .cabin {
   background: #f9f9f9;
@@ -283,12 +276,12 @@ h1, h2, h3 { font-weight: 700; line-height: 1.3; }
   display: flex;
   justify-content: center;
   align-items: center;
-  margin-bottom: 6px;
+  margin-bottom: 4px;
 }
 
 .seat-group {
   display: flex;
-  gap: 6px;
+  gap: 4px;
 }
 
 .aisle {
@@ -296,22 +289,35 @@ h1, h2, h3 { font-weight: 700; line-height: 1.3; }
 }
 
 .seat {
-  width: 34px;
-  height: 34px;
-  border-radius: 6px;
+  width: 52px;
+  height: 52px;
+  border-radius: 8px;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  font-size: 0.75rem;
+  font-size: 0.7rem;
   font-weight: 600;
   background: #e8e8e8;
   border: 1px solid #ccc;
   cursor: pointer;
   transition: all 0.2s;
+  margin: 2px;
 }
 
 .seat:hover {
   background: #d0d0d0;
+  transform: scale(1.05);
+}
+
+.seat.business {
+  background: #f0e68c;
+  border-color: #d4c77a;
+}
+
+.seat.extra-legroom {
+  background: #c8e6c9;
+  border-color: #a5d6a7;
 }
 
 .seat.selected {
@@ -320,11 +326,74 @@ h1, h2, h3 { font-weight: 700; line-height: 1.3; }
   border-color: var(--primary);
 }
 
+.seat-letter {
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.seat-price {
+  font-size: 0.65rem;
+  margin-top: 2px;
+}
+
+.bonus-block {
+  margin-bottom: 12px;
+  padding: 10px 14px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  font-size: 0.9rem;
+}
+
+.bonus-block label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  color: var(--text-primary);
+}
+
+.bonus-block input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+}
+
 .modal-actions {
   display: flex;
   justify-content: flex-end;
   gap: 10px;
   margin-top: 16px;
+}
+
+/* Для тёмной темы */
+.dark .seat-modal {
+  background: var(--bg-white);
+}
+
+.dark .cabin {
+  background: #1a1a3a;
+}
+
+.dark .seat {
+  background: #2a2a4a;
+  border-color: #3a3a5a;
+}
+
+.dark .seat:hover {
+  background: #3a3a5a;
+}
+
+.dark .seat.business {
+  background: #6b5b3a;
+  border-color: #8b7b4a;
+}
+
+.dark .seat.extra-legroom {
+  background: #2a4a3a;
+  border-color: #3a6a4a;
+}
+
+.dark .bonus-block {
+  background: #1a1a2e;
 }
 
 /* ====== ФИЛЬТРЫ ====== */
@@ -803,6 +872,34 @@ body, .card, .navbar, input, select, textarea, .seat, .modal-overlay {
 
 .suggestion-item:last-child {
   border-radius: 0 0 8px 8px;
+}
+
+/* ====== СКЕЛЕТОНЫ ====== */
+.skeleton-card {
+  padding: 20px;
+  margin-bottom: 12px;
+}
+.skeleton-line {
+  height: 16px;
+  background: linear-gradient(90deg, #e0e0e0 25%, #f0f0f0 50%, #e0e0e0 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 4px;
+  margin-bottom: 10px;
+}
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+.plane-icon {
+  display: inline-block;
+  animation: fly 2s ease-in-out infinite;
+  margin-right: 10px;
+}
+@keyframes fly {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-10px) rotate(5deg); }
 }
 
 @media (max-width: 480px) {

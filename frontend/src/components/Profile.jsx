@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import api from '../api';
 import { useAuth } from '../contexts/AuthContext';
 import { toast } from 'react-toastify';
+import { generateTicketPDF } from '../utils/ticketPdf';
 
 export default function Profile() {
   const { user } = useAuth();
@@ -129,6 +130,13 @@ export default function Profile() {
               <div style={{ textAlign: 'right' }}>
                 <div style={{ fontWeight: '600' }}>Место {t.seat_number}</div>
                 <div style={{ color: 'var(--primary)', fontWeight: '600' }}>{t.price} ₽</div>
+                <button 
+                  className="btn btn-outline btn-sm" 
+                  onClick={() => generateTicketPDF({...t, passenger_name: user.full_name})}
+                  style={{ marginTop: '6px' }}
+                >
+                  📄 PDF
+                </button>
                 <button
                   className="btn btn-outline btn-sm"
                   style={{ marginTop: '6px', color: 'var(--danger)', borderColor: 'var(--danger)' }}
