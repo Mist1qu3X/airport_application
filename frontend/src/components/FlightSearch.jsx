@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faPlane } from '@fortawesome/free-solid-svg-icons';
 import FavoriteRoutes from './FavoriteRoutes';
 
 const popularDirections = [
@@ -15,15 +17,21 @@ export default function FlightSearch() {
   const [destination, setDestination] = useState('');
   const [date, setDate] = useState('');
   const [passengers, setPassengers] = useState(1);
+  const [isSearching, setIsSearching] = useState(false);
   const navigate = useNavigate();
 
   const handleSearch = () => {
+    setIsSearching(true);
     const params = new URLSearchParams();
     if (origin) params.set('origin', origin);
     if (destination) params.set('destination', destination);
     if (date) params.set('date', date);
     if (passengers > 1) params.set('passengers', passengers);
-    navigate(`/results?${params.toString()}`);
+    
+    setTimeout(() => {
+      navigate(`/results?${params.toString()}`);
+      setIsSearching(false);
+    }, 600);
   };
 
   const swap = () => {
@@ -35,11 +43,15 @@ export default function FlightSearch() {
   return (
     <div className="search-page animate-fade-in">
       <div className="search-hero">
-        <h1 className="search-title">Поиск дешёвых авиабилетов</h1>
+        <h1 className="search-title">
+          <span className={`plane-icon ${isSearching ? 'flying' : ''}`}>
+            <FontAwesomeIcon icon={faPlane} />
+          </span>
+          Поиск дешёвых авиабилетов
+        </h1>
         <p className="search-subtitle">Сравните цены на авиабилеты и найдите лучшие предложения</p>
       </div>
 
-      {/* Избранные маршруты */}
       <FavoriteRoutes />
 
       <div className="search-box card">
@@ -64,8 +76,8 @@ export default function FlightSearch() {
             </select>
           </div>
         </div>
-        <button className="btn btn-secondary search-btn" onClick={handleSearch}>
-          🔍 Найти билеты
+        <button className="btn btn-secondary search-btn" onClick={handleSearch} disabled={isSearching}>
+          {isSearching ? 'Ищем...' : 'Найти билеты'}
         </button>
       </div>
 

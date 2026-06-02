@@ -144,9 +144,9 @@ export default function FavoriteRoutes() {
 
     const diff = currentMinPrice - oldPrice;
     if (diff < -500) {
-      toast.success(`💰 Цена снизилась на ${Math.abs(diff).toLocaleString()} ₽! Было ${oldPrice.toLocaleString()} → стало ${currentMinPrice.toLocaleString()}`);
+      toast.success(`Цена снизилась на ${Math.abs(diff).toLocaleString()} ₽! Было ${oldPrice.toLocaleString()} → стало ${currentMinPrice.toLocaleString()}`);
     } else if (diff > 500) {
-      toast.warning(`📈 Цена выросла на ${diff.toLocaleString()} ₽. Было ${oldPrice.toLocaleString()} → стало ${currentMinPrice.toLocaleString()}`);
+      toast.warning(`Цена выросла на ${diff.toLocaleString()} ₽. Было ${oldPrice.toLocaleString()} → стало ${currentMinPrice.toLocaleString()}`);
     } else {
       toast.info(`Цена практически не изменилась (${oldPrice.toLocaleString()} → ${currentMinPrice.toLocaleString()})`);
     }

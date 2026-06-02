@@ -13,11 +13,12 @@ const TIME_OPTIONS = [
 ];
 
 export default function FlightResults() {
-  const [searchParams, setSearchParams] = useSearchParams();
+  const [searchParams] = useSearchParams();
   const [flights, setFlights] = useState([]);
   const [allFlights, setAllFlights] = useState([]);
   const [selectedFlight, setSelectedFlight] = useState(null);
   const [sortBy, setSortBy] = useState('price');
+  const [loading, setLoading] = useState(true);
   
   const [priceMin, setPriceMin] = useState('');
   const [priceMax, setPriceMax] = useState('');
@@ -28,13 +29,15 @@ export default function FlightResults() {
   const [showFilters, setShowFilters] = useState(false);
 
   useEffect(() => {
+    setLoading(true);
     api.get('/api/flights', { params: Object.fromEntries(searchParams) })
       .then(res => {
         setAllFlights(res.data);
         const uniqueAirlines = [...new Set(res.data.map(f => f.airline))];
         setAirlines(uniqueAirlines);
       })
-      .catch(console.error);
+      .catch(console.error)
+      .finally(() => setLoading(false));
   }, [searchParams]);
 
   useEffect(() => {
@@ -199,64 +202,75 @@ export default function FlightResults() {
         </div>
       )}
 
-      {flights.length === 0 && (
+      {/* Скелетоны при загрузке */}
+      {loading ? (
+        <div className="flights-list">
+          {[1,2,3].map(i => (
+            <div key={i} className="skeleton-card card">
+              <div className="skeleton-line" style={{ width: '30%' }}></div>
+              <div className="skeleton-line" style={{ width: '60%' }}></div>
+              <div className="skeleton-line" style={{ width: '40%' }}></div>
+              <div className="skeleton-line" style={{ width: '50%' }}></div>
+            </div>
+          ))}
+        </div>
+      ) : flights.length === 0 ? (
         <div className="empty-state card">
-          <div className="empty-icon">🔍</div>
           <h3>Рейсы не найдены</h3>
           <p>Попробуйте изменить параметры поиска</p>
         </div>
+      ) : (
+        <div className="flights-list">
+          {flights.map(f => (
+            <div key={f.id} className="flight-card card animate-slide-up">
+              <div className="flight-main">
+                <div className="flight-airline">
+                  <span className="airline-logo">{f.airline[0]}</span>
+                  <div>
+                    <div className="airline-name">{f.airline}</div>
+                    <div className="flight-number">{f.flight_number}</div>
+                  </div>
+                </div>
+                <div className="flight-times">
+                  <div className="departure">
+                    <div className="time">{formatTime(f.scheduled_departure)}</div>
+                    <div className="city">{f.origin}</div>
+                    <div className="date">{formatDate(f.scheduled_departure)}</div>
+                  </div>
+                  <div className="duration-line">
+                    <div className="duration">{duration(f.scheduled_departure, f.scheduled_arrival)}</div>
+                    <div className="line"></div>
+                    {f.stopovers && f.stopovers.length > 0 && (
+                      <div className="stops">{f.stopovers.length} пересадка</div>
+                    )}
+                  </div>
+                  <div className="arrival">
+                    <div className="time">{formatTime(f.scheduled_arrival)}</div>
+                    <div className="city">{f.destination}</div>
+                    <div className="date">{formatDate(f.scheduled_arrival)}</div>
+                  </div>
+                </div>
+                <div className="flight-status">
+                  <span className={`status-badge status-${f.status === 'scheduled' ? 'ok' : f.status === 'boarding' ? 'warn' : 'bad'}`}>
+                    {f.status === 'scheduled' ? 'По расписанию' : f.status === 'boarding' ? 'Посадка' : f.status}
+                  </span>
+                  <div className="seats">{f.free_seats} мест</div>
+                </div>
+              </div>
+              <div className="flight-price">
+                <div className="price-amount">{f.price.toLocaleString()} ₽</div>
+                <div className="price-hint">за одного пассажира</div>
+                <Link to={`/flight/${f.id}`} className="btn btn-outline btn-sm" style={{ marginRight: '8px' }}>
+                  Подробнее
+                </Link>
+                <button className="btn btn-secondary btn-sm" onClick={() => setSelectedFlight(f)}>
+                  Выбрать
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
       )}
-
-      <div className="flights-list">
-        {flights.map(f => (
-          <div key={f.id} className="flight-card card animate-slide-up">
-            <div className="flight-main">
-              <div className="flight-airline">
-                <span className="airline-logo">{f.airline[0]}</span>
-                <div>
-                  <div className="airline-name">{f.airline}</div>
-                  <div className="flight-number">{f.flight_number}</div>
-                </div>
-              </div>
-              <div className="flight-times">
-                <div className="departure">
-                  <div className="time">{formatTime(f.scheduled_departure)}</div>
-                  <div className="city">{f.origin}</div>
-                  <div className="date">{formatDate(f.scheduled_departure)}</div>
-                </div>
-                <div className="duration-line">
-                  <div className="duration">{duration(f.scheduled_departure, f.scheduled_arrival)}</div>
-                  <div className="line"></div>
-                  {f.stopovers && f.stopovers.length > 0 && (
-                    <div className="stops">{f.stopovers.length} пересадка</div>
-                  )}
-                </div>
-                <div className="arrival">
-                  <div className="time">{formatTime(f.scheduled_arrival)}</div>
-                  <div className="city">{f.destination}</div>
-                  <div className="date">{formatDate(f.scheduled_arrival)}</div>
-                </div>
-              </div>
-              <div className="flight-status">
-                <span className={`status-badge status-${f.status === 'scheduled' ? 'ok' : f.status === 'boarding' ? 'warn' : 'bad'}`}>
-                  {f.status === 'scheduled' ? 'По расписанию' : f.status === 'boarding' ? 'Посадка' : f.status}
-                </span>
-                <div className="seats">{f.free_seats} мест</div>
-              </div>
-            </div>
-            <div className="flight-price">
-              <div className="price-amount">{f.price.toLocaleString()} ₽</div>
-              <div className="price-hint">за одного пассажира</div>
-              <Link to={`/flight/${f.id}`} className="btn btn-outline btn-sm" style={{ marginRight: '8px' }}>
-                Подробнее
-              </Link>
-              <button className="btn btn-secondary btn-sm" onClick={() => setSelectedFlight(f)}>
-                Выбрать
-              </button>
-            </div>
-          </div>
-        ))}
-      </div>
 
       {selectedFlight && <SeatMap flight={selectedFlight} onClose={() => setSelectedFlight(null)} />}
     </div>

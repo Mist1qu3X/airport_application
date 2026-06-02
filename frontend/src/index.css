@@ -915,6 +915,45 @@ body, .card, .navbar, input, select, textarea, .seat, .modal-overlay {
   }
 }
 
+/* Иконка самолёта в заголовке */
+.plane-icon {
+  display: inline-block;
+  margin-right: 10px;
+  color: var(--primary);
+  transition: transform 0.6s ease, opacity 0.6s ease;
+}
+
+.plane-icon.flying {
+  animation: flyAway 0.6s ease forwards;
+}
+
+@keyframes flyAway {
+  0% {
+    transform: translateX(0) translateY(0) rotate(0deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(200px) translateY(-30px) rotate(15deg);
+    opacity: 0;
+  }
+}
+
+/* ====== АДМИН-ФОРМА ====== */
+.admin-form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 10px;
+}
+.admin-form-grid input,
+.admin-form-grid select {
+  width: 100%;
+  padding: 8px 10px;
+}
+
+.table-responsive {
+  overflow-x: auto;
+}
+
 /* ====== АВТОРИЗАЦИЯ ====== */
 .auth-page { max-width: 400px; margin: 40px auto; }
 .auth-card { padding: 30px; }
