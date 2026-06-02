@@ -1,6 +1,7 @@
 import httpx
 import os
-from fastapi import FastAPI, Depends, HTTPException, Query
+import random
+from fastapi import FastAPI, Depends, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
@@ -83,6 +84,63 @@ async def search_flights(
     result = await db.execute(query.order_by(Flight.scheduled_departure))
     return result.scalars().all()
 
+# ---------- КАЛЕНДАРЬ ЦЕН ----------
+@app.get("/api/flights/prices")
+async def get_prices_calendar(request: Request, db: AsyncSession = Depends(get_db)):
+    # Получаем параметры вручную
+    origin = request.query_params.get("origin", "")
+    destination = request.query_params.get("destination", "")
+    year_str = request.query_params.get("year", "2026")
+    month_str = request.query_params.get("month", "6")
+    
+    try:
+        year = int(year_str)
+        month = int(month_str)
+    except:
+        return {"prices": {}}
+    
+    # Первый и последний день месяца
+    start_date = datetime(year, month, 1)
+    if month == 12:
+        end_date = datetime(year + 1, 1, 1)
+    else:
+        end_date = datetime(year, month + 1, 1)
+    
+    # Ищем рейсы
+    result = await db.execute(
+        select(Flight)
+        .where(
+            Flight.origin.ilike(f"%{origin}%"),
+            Flight.destination.ilike(f"%{destination}%"),
+            Flight.scheduled_departure >= start_date,
+            Flight.scheduled_departure < end_date,
+            Flight.status.in_(["scheduled", "boarding", "delayed"]),
+            Flight.free_seats > 0
+        )
+        .order_by(Flight.scheduled_departure)
+    )
+    flights = result.scalars().all()
+    
+    # Группируем по дням
+    prices_by_day = {}
+    for flight in flights:
+        day = str(flight.scheduled_departure.day)
+        price = float(flight.price)
+        
+        if day not in prices_by_day:
+            prices_by_day[day] = {
+                "price": price,
+                "flights_count": 1,
+                "min_price": price
+            }
+        else:
+            prices_by_day[day]["flights_count"] += 1
+            if price < prices_by_day[day]["min_price"]:
+                prices_by_day[day]["min_price"] = price
+                prices_by_day[day]["price"] = price
+    
+    return {"prices": prices_by_day}
+
 @app.get("/api/flights/{id}", response_model=FlightOut)
 async def get_flight(id: int, db: AsyncSession = Depends(get_db)):
     flight = await db.get(Flight, id)
@@ -105,7 +163,6 @@ async def purchase_ticket(req: PurchaseRequest, db: AsyncSession = Depends(get_d
     if flight.free_seats <= 0:
         raise HTTPException(400, "Нет свободных мест")
     
-    # Проверка оплаты бонусами (если переданы)
     use_bonuses = getattr(req, 'use_bonuses', 0)
     if use_bonuses > 0:
         if use_bonuses > current_user.bonuses:
@@ -117,9 +174,7 @@ async def purchase_ticket(req: PurchaseRequest, db: AsyncSession = Depends(get_d
     ticket = Ticket(flight_id=req.flight_id, user_id=current_user.id, seat_number=req.seat_number)
     db.add(ticket)
     
-    # Начисление бонусов (5% от цены)
     current_user.bonuses += int(flight.price * 0.05)
-    # Списание бонусов, если использованы
     if use_bonuses > 0:
         current_user.bonuses -= use_bonuses
     
@@ -164,11 +219,9 @@ async def return_ticket(ticket_id: int, db: AsyncSession = Depends(get_db),
     if flight and flight.status in ("departed", "landed"):
         raise HTTPException(400, "Нельзя вернуть билет после вылета")
     
-    # Возвращаем место
     if flight:
         flight.free_seats += 1
     
-    # Забираем 50% бонусов, начисленных при покупке
     bonus_to_remove = int(flight.price * 0.05 * 0.5) if flight else 0
     current_user.bonuses = max(0, current_user.bonuses - bonus_to_remove)
     
@@ -228,62 +281,100 @@ async def change_role(user_id: int, role: str, db: AsyncSession = Depends(get_db
 # ---------- ИМПОРТ ИЗ AVIATIONSTACK ----------
 @app.post("/api/import/flights")
 async def import_flights(db: AsyncSession = Depends(get_db), admin=Depends(get_admin_or_developer)):
-    api_key = os.getenv("AVIATIONSTACK_API_KEY")
-    if not api_key:
-        raise HTTPException(500, "API key not set")
-    url = "https://api.aviationstack.com/v1/flights"
-    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
-    params = {"access_key": api_key, "limit": 100, "flight_status": "active", "dep_iata": "SVO"}
+    api_key = os.getenv("AVIATIONSTACK_API_KEY", "7ebfa78e0b72baaca9dbbc9a9b7a03db")
+    
+    airports = ["SVO", "DME", "LED", "OVB", "AER", "KZN", "GOJ", "UFA", "SVX", "ROV"]
+    imported_count = 0
+    
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+    }
+    
     async with httpx.AsyncClient(timeout=30, headers=headers) as client:
-        resp = await client.get(url, params=params)
-        if resp.status_code != 200:
-            raise HTTPException(502, f"External API error: {resp.text[:200]}")
-        data = resp.json()
-        flights_data = data.get("data", [])
-        count = 0
-        for f in flights_data:
-            flight_number = f.get("flight", {}).get("iata") or f.get("flight", {}).get("icao")
-            if not flight_number:
-                continue
-            dep_str = f.get("departure", {}).get("scheduled")
-            arr_str = f.get("arrival", {}).get("scheduled")
-            if not dep_str or not arr_str:
-                continue
+        for airport in airports:
             try:
-                dep = datetime.fromisoformat(dep_str.replace("Z", "+00:00"))
-                arr = datetime.fromisoformat(arr_str.replace("Z", "+00:00"))
-            except:
+                resp = await client.get(
+                    "https://api.aviationstack.com/v1/flights",
+                    params={
+                        "access_key": api_key,
+                        "limit": 50,
+                        "dep_iata": airport
+                    }
+                )
+                if resp.status_code != 200:
+                    continue
+                    
+                data = resp.json()
+                flights_data = data.get("data", [])
+                
+                for f in flights_data:
+                    flight_num = f.get("flight", {}).get("iata")
+                    if not flight_num:
+                        continue
+                    
+                    airline_name = f.get("airline", {}).get("name", "Unknown")
+                    dep_airport = f.get("departure", {}).get("airport", "Unknown")
+                    arr_airport = f.get("arrival", {}).get("airport", "Unknown")
+                    
+                    dep_str = f.get("departure", {}).get("scheduled")
+                    arr_str = f.get("arrival", {}).get("scheduled")
+                    
+                    if not dep_str or not arr_str:
+                        continue
+                    
+                    try:
+                        dep = datetime.fromisoformat(dep_str.replace("Z", "+00:00"))
+                        arr = datetime.fromisoformat(arr_str.replace("Z", "+00:00"))
+                    except:
+                        continue
+                    
+                    existing = await db.execute(
+                        select(Flight).where(
+                            Flight.flight_number == flight_num,
+                            Flight.scheduled_departure == dep
+                        )
+                    )
+                    if existing.scalars().first():
+                        continue
+                    
+                    status_map = {
+                        "scheduled": "scheduled",
+                        "active": "boarding",
+                        "landed": "landed",
+                        "cancelled": "cancelled",
+                        "incident": "delayed"
+                    }
+                    status = status_map.get(f.get("flight_status"), "scheduled")
+                    
+                    new_flight = Flight(
+                        flight_number=flight_num,
+                        airline=airline_name,
+                        origin=dep_airport,
+                        destination=arr_airport,
+                        scheduled_departure=dep,
+                        scheduled_arrival=arr,
+                        estimated_departure=dep + timedelta(minutes=15) if status == "delayed" else None,
+                        estimated_arrival=arr + timedelta(minutes=15) if status == "delayed" else None,
+                        status=status,
+                        free_seats=random.randint(5, 60),
+                        price=random.randint(2500, 25000),
+                        stopovers=[]
+                    )
+                    db.add(new_flight)
+                    imported_count += 1
+                    
+                    if imported_count >= 200:
+                        break
+                        
+            except Exception as e:
+                print(f"Error for {airport}: {e}")
                 continue
-            est_dep_str = f.get("departure", {}).get("estimated")
-            est_dep = None
-            if est_dep_str:
-                try:
-                    est_dep = datetime.fromisoformat(est_dep_str.replace("Z", "+00:00"))
-                except:
-                    pass
-            flight_status = f.get("flight_status", "scheduled")
-            # UPSERT
-            existing = await db.execute(
-                select(Flight).where(Flight.flight_number == flight_number, Flight.scheduled_departure == dep)
-            )
-            if existing.scalars().first():
-                continue
-            new_flight = Flight(
-                flight_number=flight_number,
-                airline=f.get("airline", {}).get("name", "Unknown"),
-                origin=f.get("departure", {}).get("airport", "Unknown"),
-                destination=f.get("arrival", {}).get("airport", "Unknown"),
-                scheduled_departure=dep,
-                scheduled_arrival=arr,
-                estimated_departure=est_dep,
-                status=flight_status,
-                free_seats=30,
-                price=5000.0
-            )
-            db.add(new_flight)
-            count += 1
-        await db.commit()
-        return {"msg": f"Импортировано {count} рейсов"}
+                
+            if imported_count >= 200:
+                break
+    
+    await db.commit()
+    return {"msg": f"Импортировано {imported_count} рейсов"}
 
 # ---------- АКЦИИ ----------
 @app.get("/api/promotions")

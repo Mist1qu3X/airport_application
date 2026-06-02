@@ -657,7 +657,7 @@ body, .card, .navbar, input, select, textarea, .seat, .modal-overlay {
 /* ====== КАЛЕНДАРЬ ЦЕН ====== */
 .price-calendar {
   padding: 20px;
-  max-width: 400px;
+  margin-bottom: 20px;
 }
 
 .calendar-header {
@@ -667,11 +667,16 @@ body, .card, .navbar, input, select, textarea, .seat, .modal-overlay {
   margin-bottom: 16px;
 }
 
+.calendar-header h3 {
+  text-transform: capitalize;
+}
+
 .calendar-legend {
   display: flex;
   gap: 16px;
   margin-bottom: 12px;
   font-size: 0.85rem;
+  flex-wrap: wrap;
 }
 
 .legend-dot {
@@ -704,33 +709,51 @@ body, .card, .navbar, input, select, textarea, .seat, .modal-overlay {
   align-items: center;
   justify-content: center;
   border-radius: 8px;
-  cursor: pointer;
-  transition: all 0.2s;
   font-size: 0.9rem;
+  transition: all 0.2s;
+  position: relative;
+  min-height: 60px;
 }
 
-.calendar-day:hover {
+.calendar-day.has-flights {
+  cursor: pointer;
+}
+
+.calendar-day.has-flights:hover {
   transform: scale(1.1);
-  box-shadow: var(--shadow-sm);
+  box-shadow: var(--shadow-md);
+  z-index: 2;
+}
+
+.calendar-day.past {
+  opacity: 0.4;
+  cursor: not-allowed;
 }
 
 .calendar-day.empty {
   cursor: default;
 }
 
-.calendar-day.empty:hover {
-  transform: none;
-  box-shadow: none;
-}
-
 .day-number {
   font-weight: 600;
+  font-size: 0.95rem;
 }
 
 .day-price {
   font-size: 0.7rem;
   font-weight: 600;
-  margin-top: 2px;
+  margin-top: 1px;
+  white-space: nowrap;
+}
+
+.day-flights {
+  font-size: 0.6rem;
+  color: rgba(0,0,0,0.6);
+  white-space: nowrap;
+}
+
+.dark .day-flights {
+  color: rgba(255,255,255,0.6);
 }
 
 /* ====== ИЗБРАННЫЕ МАРШРУТЫ ====== */
@@ -746,6 +769,40 @@ body, .card, .navbar, input, select, textarea, .seat, .modal-overlay {
 
 .favorite-item:hover {
   background: rgba(0, 102, 204, 0.02);
+}
+
+/* ====== АВТОДОПОЛНЕНИЕ ====== */
+.suggestions-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: var(--bg-white);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: var(--shadow-md);
+  z-index: 10;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.suggestion-item {
+  padding: 10px 14px;
+  cursor: pointer;
+  transition: background var(--transition);
+}
+
+.suggestion-item:hover {
+  background: rgba(0, 102, 204, 0.05);
+  color: var(--primary);
+}
+
+.suggestion-item:first-child {
+  border-radius: 8px 8px 0 0;
+}
+
+.suggestion-item:last-child {
+  border-radius: 0 0 8px 8px;
 }
 
 @media (max-width: 480px) {

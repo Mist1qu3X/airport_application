@@ -18,7 +18,12 @@ export default function FlightSearch() {
   const navigate = useNavigate();
 
   const handleSearch = () => {
-    navigate(`/results?origin=${origin}&destination=${destination}&date=${date}&passengers=${passengers}`);
+    const params = new URLSearchParams();
+    if (origin) params.set('origin', origin);
+    if (destination) params.set('destination', destination);
+    if (date) params.set('date', date);
+    if (passengers > 1) params.set('passengers', passengers);
+    navigate(`/results?${params.toString()}`);
   };
 
   const swap = () => {
@@ -33,6 +38,9 @@ export default function FlightSearch() {
         <h1 className="search-title">Поиск дешёвых авиабилетов</h1>
         <p className="search-subtitle">Сравните цены на авиабилеты и найдите лучшие предложения</p>
       </div>
+
+      {/* Избранные маршруты */}
+      <FavoriteRoutes />
 
       <div className="search-box card">
         <div className="search-inputs">
@@ -57,11 +65,10 @@ export default function FlightSearch() {
           </div>
         </div>
         <button className="btn btn-secondary search-btn" onClick={handleSearch}>
-          Найти билеты
+          🔍 Найти билеты
         </button>
       </div>
 
-      <FavoriteRoutes />
       <div className="popular-section">
         <h2 className="section-title">Популярные направления</h2>
         <div className="popular-grid">
