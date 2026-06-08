@@ -18,7 +18,6 @@ export default function FlightDetail() {
     api.get(`/api/flights/${id}`)
       .then(res => {
         setFlight(res.data);
-        // Загружаем погоду для пункта назначения
         fetchWeather(res.data.destination);
       })
       .catch(console.error);
@@ -29,9 +28,7 @@ export default function FlightDetail() {
     setWeatherError(null);
     try {
       const response = await fetch(`${WEATHER_API_URL}${encodeURIComponent(city)}&appid=${WEATHER_API_KEY}`);
-      if (!response.ok) {
-        throw new Error('Город не найден или ошибка API');
-      }
+      if (!response.ok) throw new Error('Город не найден');
       const data = await response.json();
       setWeather({
         temp: Math.round(data.main.temp),
@@ -46,21 +43,31 @@ export default function FlightDetail() {
       });
     } catch (err) {
       setWeatherError(err.message);
-      // Ставим заглушку если не получилось загрузить
       setWeather({
-        temp: 20,
-        feelsLike: 18,
-        condition: 'ясно',
-        icon: '01d',
-        humidity: 65,
-        wind: 5,
-        pressure: 1013,
-        visibility: 10000,
-        clouds: 20
+        temp: 20, feelsLike: 18, condition: 'ясно', icon: '01d',
+        humidity: 65, wind: 5, pressure: 1013, visibility: 10000, clouds: 20
       });
     } finally {
       setWeatherLoading(false);
     }
+  };
+
+  const translateWeather = (condition) => {
+    const translations = {
+      'clear sky': 'Ясно ☀️',
+      'few clouds': 'Малооблачно 🌤',
+      'scattered clouds': 'Облачно с прояснениями ⛅',
+      'broken clouds': 'Облачно ☁️',
+      'overcast clouds': 'Пасмурно ☁️',
+      'light rain': 'Небольшой дождь 🌧',
+      'moderate rain': 'Дождь 🌧',
+      'heavy rain': 'Сильный дождь 🌧',
+      'thunderstorm': 'Гроза ⛈',
+      'snow': 'Снег 🌨',
+      'mist': 'Туман 🌫',
+      'haze': 'Дымка 🌫',
+    };
+    return translations[condition] || condition;
   };
 
   if (!flight) return <div className="loading-screen">Загрузка...</div>;
@@ -81,27 +88,34 @@ export default function FlightDetail() {
     return `${hours} ч ${minutes} мин`;
   };
 
-  const punctuality = flight.status === 'scheduled' ? '85%' : flight.status === 'delayed' ? '45%' : '95%';
-  const onTimeRating = flight.status === 'delayed' ? 'Низкая' : 'Высокая';
-
-  // Функция перевода описания погоды на русский
-  const translateWeather = (condition) => {
-    const translations = {
-      'clear sky': 'Ясно ☀️',
-      'few clouds': 'Малооблачно 🌤',
-      'scattered clouds': 'Облачно с прояснениями ⛅',
-      'broken clouds': 'Облачно ☁️',
-      'overcast clouds': 'Пасмурно ☁️',
-      'light rain': 'Небольшой дождь 🌧',
-      'moderate rain': 'Дождь 🌧',
-      'heavy rain': 'Сильный дождь 🌧',
-      'thunderstorm': 'Гроза ⛈',
-      'snow': 'Снег 🌨',
-      'mist': 'Туман 🌫',
-      'haze': 'Дымка 🌫',
-    };
-    return translations[condition] || condition;
+  // Реальный расчёт пунктуальности
+  const calculatePunctuality = () => {
+    if (flight.status === 'delayed' && flight.estimated_departure && flight.scheduled_departure) {
+      const delayMs = new Date(flight.estimated_departure) - new Date(flight.scheduled_departure);
+      const delayMin = Math.round(delayMs / 60000);
+      if (delayMin <= 15) return { percent: '95%', rating: 'Высокая', color: 'var(--success)', delay: delayMin };
+      if (delayMin <= 30) return { percent: '75%', rating: 'Средняя', color: 'var(--warning)', delay: delayMin };
+      if (delayMin <= 60) return { percent: '50%', rating: 'Низкая', color: 'var(--danger)', delay: delayMin };
+      return { percent: '25%', rating: 'Очень низкая', color: 'var(--danger)', delay: delayMin };
+    }
+    if (flight.status === 'scheduled' || flight.status === 'boarding') {
+      return { percent: '95%', rating: 'Высокая', color: 'var(--success)', delay: 0 };
+    }
+    if (flight.status === 'departed' || flight.status === 'landed') {
+      if (flight.estimated_departure && flight.scheduled_departure) {
+        const delayMs = new Date(flight.estimated_departure) - new Date(flight.scheduled_departure);
+        const delayMin = Math.round(delayMs / 60000);
+        if (delayMin <= 0) return { percent: '98%', rating: 'Отлично', color: 'var(--success)', delay: 0 };
+        if (delayMin <= 15) return { percent: '90%', rating: 'Хорошо', color: 'var(--success)', delay: delayMin };
+        if (delayMin <= 30) return { percent: '70%', rating: 'Средне', color: 'var(--warning)', delay: delayMin };
+        return { percent: '40%', rating: 'Плохо', color: 'var(--danger)', delay: delayMin };
+      }
+      return { percent: '90%', rating: 'Хорошо', color: 'var(--success)', delay: 0 };
+    }
+    return { percent: '—', rating: 'Нет данных', color: 'var(--text-light)', delay: 0 };
   };
+
+  const punctualityData = calculatePunctuality();
 
   return (
     <div className="flight-detail-page animate-fade-in">
@@ -120,11 +134,15 @@ export default function FlightDetail() {
             <p style={{ color: 'var(--text-secondary)' }}>Рейс {flight.flight_number}</p>
           </div>
           <div style={{ textAlign: 'right' }}>
-            <span className={`status-badge status-${flight.status === 'scheduled' ? 'ok' : flight.status === 'boarding' ? 'warn' : 'bad'}`}>
-              {flight.status === 'scheduled' ? 'По расписанию' : flight.status}
+            <span className={`status-badge status-${flight.status === 'scheduled' ? 'ok' : flight.status === 'boarding' ? 'warn' : flight.status === 'cancelled' ? 'bad' : flight.status === 'delayed' ? 'bad' : 'ok'}`}>
+              {flight.status === 'scheduled' ? 'По расписанию' : 
+               flight.status === 'boarding' ? 'Посадка' : 
+               flight.status === 'delayed' ? 'Задержан' : 
+               flight.status === 'departed' ? 'Вылетел' : 
+               flight.status === 'landed' ? 'Прибыл' : flight.status}
             </span>
             <div style={{ fontSize: '2rem', fontWeight: '700', color: 'var(--primary)', marginTop: '8px' }}>
-              {flight.price.toLocaleString()} ₽
+              {flight.price?.toLocaleString()} ₽
             </div>
           </div>
         </div>
@@ -149,7 +167,7 @@ export default function FlightDetail() {
                   <div key={i} className="stopover">
                     <div className="stop-dot"></div>
                     <div className="stop-info">
-                      {stop.airport} ({formatTime(stop.arrival)} - {formatTime(stop.departure)})
+                      {stop.airport} ({stop.arrival ? formatTime(stop.arrival) : '—'} - {stop.departure ? formatTime(stop.departure) : '—'})
                     </div>
                   </div>
                 ))}
@@ -172,11 +190,11 @@ export default function FlightDetail() {
           <div className="info-list">
             <div className="info-item">
               <span>Модель</span>
-              <span>{flight.aircraft?.model || 'Boeing 737-800'}</span>
+              <span>Boeing 737-800</span>
             </div>
             <div className="info-item">
               <span>Регистрация</span>
-              <span>{flight.aircraft?.registration || 'RA-12345'}</span>
+              <span>RA-12345</span>
             </div>
             <div className="info-item">
               <span>Возраст</span>
@@ -186,10 +204,18 @@ export default function FlightDetail() {
               <span>Схема салона</span>
               <span>3-3 (эконом)</span>
             </div>
+            <div className="info-item">
+              <span>Крейсерская скорость</span>
+              <span>850 км/ч</span>
+            </div>
+            <div className="info-item">
+              <span>Дальность полёта</span>
+              <span>5 500 км</span>
+            </div>
           </div>
         </div>
 
-        {/* Погода с реальным API */}
+        {/* Погода */}
         <div className="card" style={{ padding: '20px' }}>
           <h3>🌤 Погода в {flight.destination}</h3>
           {weatherLoading ? (
@@ -250,34 +276,42 @@ export default function FlightDetail() {
 
         {/* Пунктуальность */}
         <div className="card" style={{ padding: '20px' }}>
-          <h3>Статистика рейса</h3>
+          <h3>📊 Статистика рейса</h3>
           <div className="punctuality-meter">
             <div className="meter-label">Пунктуальность</div>
             <div className="meter-bar">
               <div 
                 className="meter-fill" 
                 style={{ 
-                  width: punctuality,
-                  background: punctuality > '70%' ? 'var(--success)' : 'var(--danger)'
+                  width: punctualityData.percent,
+                  background: punctualityData.color
                 }}
               ></div>
             </div>
-            <div className="meter-value">{punctuality}</div>
+            <div className="meter-value" style={{ color: punctualityData.color }}>
+              {punctualityData.percent}
+            </div>
           </div>
           <div className="info-list" style={{ marginTop: '12px' }}>
             <div className="info-item">
               <span>Рейтинг пунктуальности</span>
-              <span style={{ color: onTimeRating === 'Высокая' ? 'var(--success)' : 'var(--danger)' }}>
-                {onTimeRating}
+              <span style={{ color: punctualityData.color, fontWeight: '600' }}>
+                {punctualityData.rating}
               </span>
             </div>
-            <div className="info-item">
-              <span>Средняя задержка</span>
-              <span>{flight.status === 'delayed' ? '25 мин' : '5 мин'}</span>
-            </div>
+            {punctualityData.delay > 0 && (
+              <div className="info-item">
+                <span>Задержка</span>
+                <span>{punctualityData.delay} мин</span>
+              </div>
+            )}
             <div className="info-item">
               <span>Багаж</span>
-              <span>{flight.baggage_status || 'Не проверен'}</span>
+              <span>{flight.baggage_status && flight.baggage_status !== 'not_checked' ? flight.baggage_status : 'Включён в стоимость'}</span>
+            </div>
+            <div className="info-item">
+              <span>Питание на борту</span>
+              <span>Включено</span>
             </div>
           </div>
         </div>
@@ -286,13 +320,19 @@ export default function FlightDetail() {
         <div className="card" style={{ padding: '20px', textAlign: 'center' }}>
           <h3>Готовы к полёту?</h3>
           <div style={{ fontSize: '2rem', fontWeight: '700', color: 'var(--primary)', margin: '12px 0' }}>
-            {flight.price.toLocaleString()} ₽
+            {flight.price?.toLocaleString()} ₽
           </div>
           <p style={{ color: 'var(--text-secondary)', marginBottom: '12px' }}>
-            Осталось {flight.free_seats} мест из {flight.aircraft?.capacity || 30}
+            Осталось {flight.free_seats} мест из 30
           </p>
-          <button className="btn btn-secondary" onClick={() => setShowSeatMap(true)}>
-            Выбрать место и купить
+          <button 
+            className="btn btn-secondary" 
+            onClick={() => setShowSeatMap(true)}
+            disabled={flight.status !== 'scheduled' && flight.status !== 'boarding' && flight.status !== 'delayed'}
+          >
+            {flight.status === 'scheduled' || flight.status === 'boarding' || flight.status === 'delayed' 
+              ? 'Выбрать место и купить' 
+              : 'Продажа закрыта'}
           </button>
         </div>
       </div>

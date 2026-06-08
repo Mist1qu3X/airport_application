@@ -49,11 +49,15 @@ export default function PriceCalendar({ origin, destination }) {
   };
 
   const handleDayClick = (day) => {
-    const priceData = prices[String(day)];  // важно: ключи теперь строки!
+    const priceData = prices[String(day)];
     if (!priceData) return;
     
-    const date = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day);
-    const dateStr = date.toISOString().split('T')[0];
+    // Создаём дату в локальном часовом поясе без смещения
+    const year = currentMonth.getFullYear();
+    const month = String(currentMonth.getMonth() + 1).padStart(2, '0');
+    const dayStr = String(day).padStart(2, '0');
+    const dateStr = `${year}-${month}-${dayStr}`;
+    
     navigate(`/results?origin=${origin}&destination=${destination}&date=${dateStr}`);
   };
 
@@ -67,11 +71,11 @@ export default function PriceCalendar({ origin, destination }) {
   const maxPrice = priceValues.length > 0 ? Math.max(...priceValues) : 0;
   
   const getPriceColor = (price) => {
-    if (maxPrice === minPrice || !price) return '#e8f5e9';
+    if (maxPrice === minPrice || !price) return 'low';
     const ratio = (price - minPrice) / (maxPrice - minPrice);
-    if (ratio < 0.33) return '#c8e6c9';
-    if (ratio < 0.66) return '#fff9c4';
-    return '#ffcdd2';
+    if (ratio < 0.33) return 'low';
+    if (ratio < 0.66) return 'mid';
+    return 'high';
   };
 
   const today = new Date();
@@ -83,102 +87,53 @@ export default function PriceCalendar({ origin, destination }) {
   };
 
   return (
-    <div className="card" style={{ padding: '20px', maxWidth: '380px' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+    <div className="card price-calendar-card">
+      <div className="calendar-header">
         <button onClick={prevMonth} className="btn btn-outline btn-sm">←</button>
-        <h3 style={{ margin: 0, textTransform: 'capitalize', fontSize: '1.1rem' }}>{monthName}</h3>
+        <h3 className="calendar-month-title">{monthName}</h3>
         <button onClick={nextMonth} className="btn btn-outline btn-sm">→</button>
       </div>
       
       {error && (
-        <div style={{ color: 'var(--danger)', textAlign: 'center', marginBottom: '12px', fontSize: '0.85rem' }}>
-          {error}
-        </div>
+        <div className="calendar-error">{error}</div>
       )}
 
-      <div style={{ display: 'flex', gap: '8px', marginBottom: '10px', fontSize: '0.75rem', justifyContent: 'center' }}>
-        <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-          <span style={{ width: '10px', height: '10px', borderRadius: '2px', background: '#c8e6c9', display: 'inline-block' }}></span>
-          Низкая
-        </span>
-        <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-          <span style={{ width: '10px', height: '10px', borderRadius: '2px', background: '#fff9c4', display: 'inline-block' }}></span>
-          Средняя
-        </span>
-        <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-          <span style={{ width: '10px', height: '10px', borderRadius: '2px', background: '#ffcdd2', display: 'inline-block' }}></span>
-          Высокая
-        </span>
+      <div className="calendar-legend">
+        <span><span className="legend-dot low"></span> Низкая</span>
+        <span><span className="legend-dot mid"></span> Средняя</span>
+        <span><span className="legend-dot high"></span> Высокая</span>
       </div>
 
       {loading ? (
-        <p style={{ textAlign: 'center', padding: '20px', fontSize: '0.9rem' }}>Загрузка...</p>
+        <p className="calendar-loading">Загрузка...</p>
       ) : (
         <>
-          <div style={{ 
-            display: 'grid', 
-            gridTemplateColumns: 'repeat(7, 1fr)', 
-            gap: '2px',
-            textAlign: 'center'
-          }}>
-            {/* Дни недели */}
+          <div className="calendar-grid">
             {weekDays.map(day => (
-              <div key={day} style={{ 
-                fontSize: '0.7rem', 
-                fontWeight: 600, 
-                color: '#999', 
-                padding: '2px 0' 
-              }}>
-                {day}
-              </div>
+              <div key={day} className="calendar-weekday">{day}</div>
             ))}
             
-            {/* Пустые ячейки */}
             {Array.from({ length: firstDay - 1 }, (_, i) => (
-              <div key={`empty-${i}`} style={{ aspectRatio: '1' }}></div>
+              <div key={`empty-${i}`} className="calendar-day empty"></div>
             ))}
             
-            {/* Дни месяца */}
             {Array.from({ length: daysInMonth }, (_, i) => {
               const day = i + 1;
-              const priceData = prices[String(day)];  // ключ — строка!
+              const priceData = prices[String(day)];
               const isPast = isPastDay(day);
               const hasData = !!priceData;
+              const colorClass = hasData ? getPriceColor(priceData.price) : '';
               
               return (
                 <div 
                   key={day}
+                  className={`calendar-day ${hasData ? 'has-flights' : ''} ${isPast ? 'past' : ''} ${colorClass}`}
                   onClick={() => hasData && !isPast && handleDayClick(day)}
-                  style={{
-                    aspectRatio: '1',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    borderRadius: '6px',
-                    background: hasData ? getPriceColor(priceData.price) : 'transparent',
-                    cursor: hasData && !isPast ? 'pointer' : 'default',
-                    opacity: isPast ? 0.4 : 1,
-                    transition: 'transform 0.15s',
-                    padding: '1px',
-                    border: hasData ? '1px solid rgba(0,0,0,0.08)' : '1px solid transparent',
-                    fontSize: '0.8rem',
-                    minWidth: 0,
-                    overflow: 'hidden'
-                  }}
-                  onMouseEnter={e => {
-                    if (hasData && !isPast) e.currentTarget.style.transform = 'scale(1.1)';
-                  }}
-                  onMouseLeave={e => {
-                    e.currentTarget.style.transform = 'scale(1)';
-                  }}
                   title={hasData ? `Мин. цена: ${priceData.min_price.toLocaleString()} ₽\nРейсов: ${priceData.flights_count}` : 'Нет рейсов'}
                 >
-                  <span style={{ fontWeight: 600, fontSize: '0.8rem', lineHeight: 1 }}>{day}</span>
+                  <span className="day-number">{day}</span>
                   {hasData && (
-                    <span style={{ fontSize: '0.6rem', fontWeight: 500, lineHeight: 1, whiteSpace: 'nowrap' }}>
-                      {priceData.min_price.toLocaleString()} ₽
-                    </span>
+                    <span className="day-price">{priceData.min_price.toLocaleString()} ₽</span>
                   )}
                 </div>
               );
@@ -186,24 +141,13 @@ export default function PriceCalendar({ origin, destination }) {
           </div>
 
           {Object.keys(prices).length > 0 && (
-            <div style={{ 
-              marginTop: '10px', 
-              padding: '6px 10px', 
-              background: 'var(--bg-primary)', 
-              borderRadius: '6px',
-              textAlign: 'center',
-              fontSize: '0.8rem'
-            }}>
-              <span style={{ color: 'var(--text-secondary)' }}>
-                Цены от {minPrice.toLocaleString()} до {maxPrice.toLocaleString()} ₽
-              </span>
+            <div className="calendar-summary">
+              Цены от {minPrice.toLocaleString()} до {maxPrice.toLocaleString()} ₽
             </div>
           )}
           
           {Object.keys(prices).length === 0 && !loading && !error && (
-            <p style={{ textAlign: 'center', color: 'var(--text-secondary)', padding: '15px', fontSize: '0.85rem' }}>
-              Нет рейсов в этом месяце
-            </p>
+            <p className="calendar-empty">Нет рейсов в этом месяце</p>
           )}
         </>
       )}

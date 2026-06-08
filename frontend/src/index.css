@@ -724,8 +724,9 @@ body, .card, .navbar, input, select, textarea, .seat, .modal-overlay {
 }
 
 /* ====== КАЛЕНДАРЬ ЦЕН ====== */
-.price-calendar {
+.price-calendar-card {
   padding: 20px;
+  max-width: 400px;
   margin-bottom: 20px;
 }
 
@@ -736,39 +737,69 @@ body, .card, .navbar, input, select, textarea, .seat, .modal-overlay {
   margin-bottom: 16px;
 }
 
-.calendar-header h3 {
+.calendar-month-title {
+  margin: 0;
   text-transform: capitalize;
+  font-size: 1.1rem;
+  color: var(--text-primary);
+}
+
+.calendar-error {
+  color: var(--danger);
+  text-align: center;
+  margin-bottom: 12px;
+  font-size: 0.85rem;
 }
 
 .calendar-legend {
   display: flex;
-  gap: 16px;
-  margin-bottom: 12px;
-  font-size: 0.85rem;
-  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 10px;
+  font-size: 0.75rem;
+  justify-content: center;
+  color: var(--text-secondary);
+}
+
+.calendar-legend span {
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .legend-dot {
-  width: 12px;
-  height: 12px;
-  border-radius: 3px;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
   display: inline-block;
-  margin-right: 4px;
-  vertical-align: middle;
+}
+
+.legend-dot.low { background: #c8e6c9; }
+.legend-dot.mid { background: #fff9c4; }
+.legend-dot.high { background: #ffcdd2; }
+
+.dark .legend-dot.low { background: #2e7d32; }
+.dark .legend-dot.mid { background: #f9a825; }
+.dark .legend-dot.high { background: #c62828; }
+
+.calendar-loading {
+  text-align: center;
+  padding: 20px;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
 }
 
 .calendar-grid {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
-  gap: 4px;
+  gap: 2px;
+  text-align: center;
 }
 
 .calendar-weekday {
-  text-align: center;
-  font-size: 0.8rem;
+  font-size: 0.7rem;
   font-weight: 600;
-  color: var(--text-secondary);
-  padding: 6px 0;
+  color: var(--text-light);
+  padding: 2px 0;
 }
 
 .calendar-day {
@@ -777,21 +808,27 @@ body, .card, .navbar, input, select, textarea, .seat, .modal-overlay {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  border-radius: 8px;
-  font-size: 0.9rem;
-  transition: all 0.2s;
-  position: relative;
-  min-height: 60px;
+  border-radius: 6px;
+  transition: transform 0.15s;
+  padding: 1px;
+  border: 1px solid transparent;
+  font-size: 0.8rem;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-primary);
+}
+
+.calendar-day.empty {
+  cursor: default;
 }
 
 .calendar-day.has-flights {
   cursor: pointer;
+  border-color: rgba(0,0,0,0.08);
 }
 
 .calendar-day.has-flights:hover {
   transform: scale(1.1);
-  box-shadow: var(--shadow-md);
-  z-index: 2;
 }
 
 .calendar-day.past {
@@ -799,30 +836,50 @@ body, .card, .navbar, input, select, textarea, .seat, .modal-overlay {
   cursor: not-allowed;
 }
 
-.calendar-day.empty {
-  cursor: default;
-}
+.calendar-day.low { background: #c8e6c9; }
+.calendar-day.mid { background: #fff9c4; }
+.calendar-day.high { background: #ffcdd2; }
+
+.dark .calendar-day.low { background: #1b5e20; }
+.dark .calendar-day.mid { background: #e65100; }
+.dark .calendar-day.high { background: #b71c1c; }
+
+.dark .calendar-day { color: #fff; }
+.dark .calendar-day.has-flights { border-color: rgba(255,255,255,0.1); }
 
 .day-number {
   font-weight: 600;
-  font-size: 0.95rem;
+  font-size: 0.8rem;
+  line-height: 1;
 }
 
 .day-price {
-  font-size: 0.7rem;
-  font-weight: 600;
-  margin-top: 1px;
-  white-space: nowrap;
-}
-
-.day-flights {
   font-size: 0.6rem;
-  color: rgba(0,0,0,0.6);
+  font-weight: 500;
+  line-height: 1;
   white-space: nowrap;
 }
 
-.dark .day-flights {
-  color: rgba(255,255,255,0.6);
+.calendar-summary {
+  margin-top: 10px;
+  padding: 6px 10px;
+  background: var(--bg-primary);
+  border-radius: 6px;
+  text-align: center;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+.dark .calendar-summary {
+  background: #1a1a3a;
+  color: var(--text-secondary);
+}
+
+.calendar-empty {
+  text-align: center;
+  color: var(--text-secondary);
+  padding: 15px;
+  font-size: 0.85rem;
 }
 
 /* ====== ИЗБРАННЫЕ МАРШРУТЫ ====== */
@@ -996,6 +1053,422 @@ body, .card, .navbar, input, select, textarea, .seat, .modal-overlay {
 ::-webkit-scrollbar { width: 6px; }
 ::-webkit-scrollbar-track { background: var(--bg-primary); }
 ::-webkit-scrollbar-thumb { background: #ccc; border-radius: 3px; }
+
+/* ====== ТЁМНАЯ ТЕМА (ПОЛНАЯ) ====== */
+.dark {
+  --primary: #3399ff;
+  --primary-dark: #0066cc;
+  --secondary: #ff8533;
+  --secondary-hover: #e67300;
+  --success: #00cc66;
+  --danger: #ff4444;
+  --warning: #ffdd44;
+  --bg-primary: #1a1a2e;
+  --bg-white: #16213e;
+  --text-primary: #e0e0e0;
+  --text-secondary: #a0a0b0;
+  --text-light: #707080;
+  --border: #2a2a4a;
+  --shadow-sm: 0 1px 4px rgba(0,0,0,0.2);
+  --shadow-md: 0 4px 12px rgba(0,0,0,0.3);
+  --shadow-lg: 0 8px 24px rgba(0,0,0,0.4);
+}
+
+.dark body {
+  background: var(--bg-primary);
+  color: var(--text-primary);
+}
+
+.dark .card {
+  background: var(--bg-white);
+  color: var(--text-primary);
+}
+
+.dark input, 
+.dark select, 
+.dark textarea {
+  background: #1a1a3a;
+  color: var(--text-primary);
+  border-color: var(--border);
+}
+
+.dark input::placeholder,
+.dark textarea::placeholder {
+  color: #555;
+}
+
+.dark .navbar {
+  background: var(--bg-white);
+  border-bottom: 1px solid var(--border);
+}
+
+.dark .nav-link {
+  color: var(--text-primary);
+}
+
+.dark .nav-link:hover {
+  color: var(--primary);
+}
+
+.dark .btn-outline {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.dark .btn-outline:hover {
+  background: rgba(51, 153, 255, 0.1);
+}
+
+.dark .admin-table {
+  background: var(--bg-white);
+}
+
+.dark .admin-table th {
+  background: #1a1a3a;
+  color: var(--text-primary);
+}
+
+.dark .admin-table td {
+  border-top-color: var(--border);
+  color: var(--text-primary);
+}
+
+.dark .cabin {
+  background: #1a1a3a;
+}
+
+.dark .seat {
+  background: #2a2a4a;
+  border-color: #3a3a5a;
+  color: #aaa;
+}
+
+.dark .seat:hover {
+  background: #3a3a5a;
+}
+
+.dark .seat.selected {
+  background: var(--primary);
+  color: white;
+}
+
+.dark .modal-overlay {
+  background: rgba(0,0,0,0.7);
+}
+
+.dark .seat-modal {
+  background: var(--bg-white);
+  color: var(--text-primary);
+}
+
+.dark .sort-btn {
+  background: var(--bg-white);
+  color: var(--text-primary);
+  border-color: var(--border);
+}
+
+.dark .sort-btn.active {
+  background: var(--primary);
+  color: white;
+}
+
+.dark .meter-bar {
+  background: #2a2a4a;
+}
+
+.dark .info-item {
+  border-bottom-color: var(--border);
+}
+
+.dark .route-line {
+  background: var(--border);
+}
+
+.dark .status-ok {
+  background: rgba(0, 204, 102, 0.15);
+  color: var(--success);
+}
+
+.dark .status-warn {
+  background: rgba(255, 221, 68, 0.15);
+  color: var(--warning);
+}
+
+.dark .status-bad {
+  background: rgba(255, 68, 68, 0.15);
+  color: var(--danger);
+}
+
+.dark .flight-card {
+  background: var(--bg-white);
+}
+
+.dark .flight-card:hover {
+  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+}
+
+.dark .popular-card {
+  background: var(--bg-white);
+}
+
+.dark .popular-card:hover {
+  background: #1e2a4a;
+}
+
+.dark .favorite-item {
+  background: var(--bg-white);
+  border-color: var(--border);
+}
+
+.dark .favorite-item:hover {
+  background: #1e2a4a;
+}
+
+.dark .suggestions-dropdown {
+  background: var(--bg-white);
+  border-color: var(--border);
+}
+
+.dark .suggestion-item {
+  color: var(--text-primary);
+}
+
+.dark .suggestion-item:hover {
+  background: rgba(51, 153, 255, 0.1);
+}
+
+.dark .search-box {
+  background: var(--bg-white);
+}
+
+.dark .swap-btn {
+  background: var(--bg-white);
+  border-color: var(--border);
+  color: var(--text-primary);
+}
+
+.dark .calendar-day {
+  color: var(--text-primary);
+}
+
+.dark .calendar-day.has-flights:hover {
+  box-shadow: 0 0 10px rgba(51, 153, 255, 0.3);
+}
+
+.dark .filters-panel {
+  background: var(--bg-white);
+}
+
+.dark .checkbox-label {
+  color: var(--text-primary);
+}
+
+.dark .profile-card {
+  background: var(--bg-white);
+}
+
+.dark .ticket-item {
+  background: var(--bg-white);
+}
+
+.dark .bonus-block {
+  background: #1a1a3a;
+  color: var(--text-primary);
+}
+
+.dark .theme-toggle {
+  border-color: var(--border);
+  color: var(--text-primary);
+}
+
+.dark .theme-toggle:hover {
+  background: rgba(51, 153, 255, 0.1);
+}
+
+.dark .search-btn {
+  color: white;
+}
+
+.dark .btn-primary {
+  color: white;
+}
+
+.dark .btn-secondary {
+  color: white;
+}
+
+.dark a {
+  color: var(--primary);
+}
+
+.dark .logo {
+  color: var(--primary);
+}
+
+.dark h1, .dark h2, .dark h3, .dark h4, .dark h5, .dark h6 {
+  color: var(--text-primary);
+}
+
+.dark p, .dark span, .dark div {
+  color: inherit;
+}
+
+.dark .stat-value {
+  color: var(--text-primary);
+}
+
+.dark .stat-label {
+  color: var(--text-secondary);
+}
+
+.dark .price-amount {
+  color: var(--primary);
+}
+
+.dark .price-hint {
+  color: var(--text-light);
+}
+
+.dark .flight-number {
+  color: var(--text-light);
+}
+
+.dark .airline-name {
+  color: var(--text-primary);
+}
+
+.dark .duration {
+  color: var(--text-secondary);
+}
+
+.dark .stops {
+  color: var(--secondary);
+}
+
+.dark .seats {
+  color: var(--text-light);
+}
+
+.dark .modal-header h3,
+.dark .modal-header p {
+  color: var(--text-primary);
+}
+
+.dark .bonus-block label {
+  color: var(--text-primary);
+}
+
+.dark .admin-form-grid input,
+.dark .admin-form-grid select {
+  background: #1a1a3a;
+  color: var(--text-primary);
+  border-color: var(--border);
+}
+
+.dark .weekday {
+  color: var(--text-light);
+}
+
+.dark .calendar-weekday {
+  color: var(--text-light);
+}
+
+.dark .empty-state {
+  color: var(--text-secondary);
+}
+
+.dark .empty-icon {
+  color: var(--text-secondary);
+}
+
+.dark .route-point .city {
+  color: var(--text-primary);
+}
+
+.dark .route-point .date {
+  color: var(--text-light);
+}
+
+.dark .route-duration {
+  color: var(--text-secondary);
+}
+
+.dark .stop-info {
+  color: var(--secondary);
+}
+
+.dark .punctuality-meter .meter-label {
+  color: var(--text-secondary);
+}
+
+.dark .weather-info {
+  color: var(--text-primary);
+}
+
+.dark .info-item span:first-child {
+  color: var(--text-secondary);
+}
+
+.dark .info-item span:last-child {
+  color: var(--text-primary);
+}
+
+.dark .detail-header h2,
+.dark .detail-header p {
+  color: var(--text-primary);
+}
+
+.dark .flight-detail-page .btn-outline {
+  color: var(--primary);
+}
+
+.dark .profile-header h3 {
+  color: var(--text-primary);
+}
+
+.dark .profile-header p {
+  color: var(--text-secondary);
+}
+
+.dark .profile-stats .stat-value {
+  color: var(--text-primary);
+}
+
+.dark .auth-card h2 {
+  color: var(--text-primary);
+}
+
+.dark .auth-card label {
+  color: var(--text-secondary);
+}
+
+.dark .auth-card input {
+  background: #1a1a3a;
+  color: var(--text-primary);
+}
+
+.dark .form-group label {
+  color: var(--text-secondary);
+}
+
+.dark .filter-group label {
+  color: var(--text-secondary);
+}
+
+.dark .search-field label {
+  color: var(--text-secondary);
+}
+
+.dark .section-title {
+  color: var(--text-primary);
+}
+
+/* Переходы */
+body, .card, .navbar, input, select, textarea, .seat, .modal-overlay, 
+.flight-card, .popular-card, .favorite-item, .admin-table, .btn,
+.nav-link, .stat-value, .price-amount, h1, h2, h3, h4, p, span, div, a {
+  transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+}
 
 /* ====== АДАПТИВ ====== */
 @media (max-width: 768px) {

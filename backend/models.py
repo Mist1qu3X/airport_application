@@ -8,14 +8,17 @@ class User(Base):
     id = Column(Integer, primary_key=True, index=True)
     username = Column(String, unique=True, index=True, nullable=False)
     hashed_password = Column(String, nullable=False)
-    role = Column(String, default="user")  # user, admin, developer
+    role = Column(String, default="user")
     full_name = Column(String)
+    email = Column(String, default="")
+    email_verified = Column(Boolean, default=False)
     bonuses = Column(Integer, default=0)
+    pending_bonuses = Column(Integer, default=0)
 
 class Flight(Base):
     __tablename__ = "flights"
     id = Column(Integer, primary_key=True, index=True)
-    flight_number = Column(String, unique=False, nullable=False)  # убрали unique, чтобы были дубли по датам
+    flight_number = Column(String, nullable=False)
     airline = Column(String, nullable=False)
     origin = Column(String, nullable=False)
     destination = Column(String, nullable=False)
@@ -23,10 +26,10 @@ class Flight(Base):
     scheduled_arrival = Column(DateTime, nullable=False)
     estimated_departure = Column(DateTime)
     estimated_arrival = Column(DateTime)
-    status = Column(String, default="scheduled")  # scheduled, boarding, delayed, departed, landed, cancelled
+    status = Column(String, default="scheduled")
     free_seats = Column(Integer, default=30)
     price = Column(Float, default=5000.0)
-    stopovers = Column(JSON, default=[])  # [{airport, arrival, departure}]
+    stopovers = Column(JSON, default=[])
 
 class Ticket(Base):
     __tablename__ = "tickets"
