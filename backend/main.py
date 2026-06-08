@@ -10,9 +10,9 @@ from datetime import datetime, timedelta
 from typing import List, Optional
 from database import get_db, engine, Base
 from models import User, Flight, Ticket, Promotion
-from schemas import UserCreate, Token, FlightOut, TicketOut, PurchaseRequest, DashboardMetrics
+from schemas import UserCreate, Token, FlightOut, TicketOut, PurchaseRequest, DashboardMetrics, FlightCreate, FlightUpdate
 from auth import (get_password_hash, verify_password, create_access_token,
-                  get_current_user, get_admin_or_developer)
+                  get_current_user, get_admin_or_developer, get_developer_only)
 
 app = FastAPI(title="SkyControl")
 
@@ -62,37 +62,9 @@ async def get_profile(current_user=Depends(get_current_user), db: AsyncSession =
         "bonuses": current_user.bonuses
     }
 
-@app.get("/api/flights/all", response_model=List[FlightOut])
-async def get_all_flights(db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(Flight).order_by(Flight.scheduled_departure.desc()))
-    return result.scalars().all()
-
-# ---------- РЕЙСЫ ----------
-@app.get("/api/flights", response_model=List[FlightOut])
-async def search_flights(
-    origin: Optional[str] = None,
-    destination: Optional[str] = None,
-    date: Optional[str] = None,
-    db: AsyncSession = Depends(get_db)
-):
-    query = select(Flight).where(
-        Flight.status.in_(["scheduled", "boarding", "delayed"]),
-        Flight.free_seats > 0
-    )
-    if origin:
-        query = query.where(Flight.origin.ilike(f"%{origin}%"))
-    if destination:
-        query = query.where(Flight.destination.ilike(f"%{destination}%"))
-    if date:
-        d = datetime.fromisoformat(date)
-        query = query.where(Flight.scheduled_departure >= d, Flight.scheduled_departure < d + timedelta(days=1))
-    result = await db.execute(query.order_by(Flight.scheduled_departure))
-    return result.scalars().all()
-
-# ---------- КАЛЕНДАРЬ ЦЕН ----------
+# ---------- РЕЙСЫ (ПОРЯДОК ВАЖЕН!) ----------
 @app.get("/api/flights/prices")
 async def get_prices_calendar(request: Request, db: AsyncSession = Depends(get_db)):
-    # Получаем параметры вручную
     origin = request.query_params.get("origin", "")
     destination = request.query_params.get("destination", "")
     year_str = request.query_params.get("year", "2026")
@@ -104,14 +76,12 @@ async def get_prices_calendar(request: Request, db: AsyncSession = Depends(get_d
     except:
         return {"prices": {}}
     
-    # Первый и последний день месяца
     start_date = datetime(year, month, 1)
     if month == 12:
         end_date = datetime(year + 1, 1, 1)
     else:
         end_date = datetime(year, month + 1, 1)
     
-    # Ищем рейсы
     result = await db.execute(
         select(Flight)
         .where(
@@ -126,7 +96,6 @@ async def get_prices_calendar(request: Request, db: AsyncSession = Depends(get_d
     )
     flights = result.scalars().all()
     
-    # Группируем по дням
     prices_by_day = {}
     for flight in flights:
         day = str(flight.scheduled_departure.day)
@@ -146,12 +115,83 @@ async def get_prices_calendar(request: Request, db: AsyncSession = Depends(get_d
     
     return {"prices": prices_by_day}
 
-@app.get("/api/flights/{id}", response_model=FlightOut)
-async def get_flight(id: int, db: AsyncSession = Depends(get_db)):
-    flight = await db.get(Flight, id)
+@app.get("/api/flights/all", response_model=List[FlightOut])
+async def get_all_flights(db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(Flight).order_by(Flight.scheduled_departure.desc()))
+    return result.scalars().all()
+
+@app.post("/api/flights", response_model=FlightOut)
+async def create_flight(flight: FlightCreate, db: AsyncSession = Depends(get_db), admin=Depends(get_admin_or_developer)):
+    new_flight = Flight(**flight.dict())
+    db.add(new_flight)
+    await db.commit()
+    await db.refresh(new_flight)
+    return new_flight
+
+@app.get("/api/flights", response_model=List[FlightOut])
+async def search_flights(
+    origin: Optional[str] = None,
+    destination: Optional[str] = None,
+    date: Optional[str] = None,
+    status: Optional[str] = None,
+    db: AsyncSession = Depends(get_db)
+):
+    query = select(Flight)
+    
+    if status:
+        query = query.where(Flight.status == status)
+    else:
+        query = query.where(
+            Flight.status.in_(["scheduled", "boarding", "delayed"]),
+            Flight.free_seats > 0
+        )
+    
+    if origin:
+        query = query.where(Flight.origin.ilike(f"%{origin}%"))
+    if destination:
+        query = query.where(Flight.destination.ilike(f"%{destination}%"))
+    if date:
+        d = datetime.fromisoformat(date)
+        query = query.where(Flight.scheduled_departure >= d, Flight.scheduled_departure < d + timedelta(days=1))
+    
+    result = await db.execute(query.order_by(Flight.scheduled_departure))
+    return result.scalars().all()
+
+@app.get("/api/flights/{flight_id}", response_model=FlightOut)
+async def get_flight(flight_id: int, db: AsyncSession = Depends(get_db)):
+    flight = await db.get(Flight, flight_id)
     if not flight:
         raise HTTPException(404, "Рейс не найден")
     return flight
+
+@app.put("/api/flights/{flight_id}", response_model=FlightOut)
+async def update_flight(flight_id: int, flight_data: FlightUpdate, db: AsyncSession = Depends(get_db), admin=Depends(get_admin_or_developer)):
+    flight = await db.get(Flight, flight_id)
+    if not flight:
+        raise HTTPException(404, "Рейс не найден")
+    
+    update_data = flight_data.dict(exclude_unset=True)
+    for key, value in update_data.items():
+        setattr(flight, key, value)
+    
+    await db.commit()
+    await db.refresh(flight)
+    return flight
+
+@app.delete("/api/flights/{flight_id}")
+async def delete_flight(flight_id: int, db: AsyncSession = Depends(get_db), admin=Depends(get_admin_or_developer)):
+    flight = await db.get(Flight, flight_id)
+    if not flight:
+        raise HTTPException(404, "Рейс не найден")
+    
+    tickets_result = await db.execute(select(Ticket).where(Ticket.flight_id == flight_id))
+    tickets = tickets_result.scalars().all()
+    for ticket in tickets:
+        await db.delete(ticket)
+    
+    await db.delete(flight)
+    await db.commit()
+    return {"msg": f"Рейс {flight.flight_number} удалён"}
 
 # ---------- БИЛЕТЫ ----------
 @app.post("/api/tickets/purchase")
@@ -275,7 +315,7 @@ async def get_users(db: AsyncSession = Depends(get_db), admin=Depends(get_admin_
 
 @app.put("/api/users/{user_id}/role")
 async def change_role(user_id: int, role: str, db: AsyncSession = Depends(get_db),
-                      admin=Depends(get_admin_or_developer)):
+                      developer=Depends(get_developer_only)):
     user = await db.get(User, user_id)
     if not user:
         raise HTTPException(404, "Пользователь не найден")
@@ -283,9 +323,9 @@ async def change_role(user_id: int, role: str, db: AsyncSession = Depends(get_db
     await db.commit()
     return {"msg": f"Роль изменена на {role}"}
 
+# ---------- ИМПОРТ РЕЙСОВ ----------
 @app.post("/api/import/flights")
 async def import_flights(db: AsyncSession = Depends(get_db), admin=Depends(get_admin_or_developer)):
-    # Список популярных направлений (откуда, куда, базовая цена)
     routes = [
         ("Москва", "Сочи", 5000),
         ("Москва", "Санкт-Петербург", 3500),
@@ -311,22 +351,18 @@ async def import_flights(db: AsyncSession = Depends(get_db), admin=Depends(get_a
     new_flights = 0
     now = datetime.utcnow()
     for origin, dest, base_price in routes:
-        # Генерируем рейс на ближайшие 5 дней
         for days_ahead in range(1, 6):
-            # Не все дни – чтобы было разнообразие (70% дней имеют рейсы)
             if random.random() < 0.3:
                 continue
             dep_date = now + timedelta(days=days_ahead)
             dep_hour = random.choice([6, 7, 8, 9, 10, 12, 14, 16, 18, 20, 22])
             dep = dep_date.replace(hour=dep_hour, minute=0, second=0, microsecond=0)
-            # Продолжительность от 1.5 до 8 часов
             duration_h = random.randint(2, 8)
             arr = dep + timedelta(hours=duration_h, minutes=random.randint(0, 59))
             price = base_price + random.randint(-1500, 3000)
             free_seats = random.randint(5, 60)
             flight_num = f"{random.choice(['SU','DP','S7','U6','N4','FV','UT','YK','WZ','RL'])}{random.randint(100,999)}"
             
-            # Проверяем, нет ли уже такого рейса
             existing = await db.execute(
                 select(Flight).where(Flight.flight_number == flight_num, Flight.scheduled_departure == dep)
             )

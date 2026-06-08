@@ -47,3 +47,8 @@ async def get_admin_or_developer(current_user: User = Depends(get_current_user))
     if current_user.role not in ["admin", "developer"]:
         raise HTTPException(status_code=403, detail="Not enough permissions")
     return current_user
+
+async def get_developer_only(current_user: User = Depends(get_current_user)):
+    if current_user.role != "developer":
+        raise HTTPException(status_code=403, detail="Только разработчик может менять роли")
+    return current_user
