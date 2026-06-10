@@ -18,7 +18,7 @@ export default function FlightDetail() {
     api.get(`/api/flights/${id}`)
       .then(res => {
         setFlight(res.data);
-        fetchWeather(res.data.destination);
+        if (res.data.destination) fetchWeather(res.data.destination);
       })
       .catch(console.error);
   }, [id]);
@@ -54,18 +54,18 @@ export default function FlightDetail() {
 
   const translateWeather = (condition) => {
     const translations = {
-      'clear sky': 'Ясно ☀️',
-      'few clouds': 'Малооблачно 🌤',
-      'scattered clouds': 'Облачно с прояснениями ⛅',
-      'broken clouds': 'Облачно ☁️',
-      'overcast clouds': 'Пасмурно ☁️',
-      'light rain': 'Небольшой дождь 🌧',
-      'moderate rain': 'Дождь 🌧',
-      'heavy rain': 'Сильный дождь 🌧',
-      'thunderstorm': 'Гроза ⛈',
-      'snow': 'Снег 🌨',
-      'mist': 'Туман 🌫',
-      'haze': 'Дымка 🌫',
+      'clear sky': 'Ясно',
+      'few clouds': 'Малооблачно',
+      'scattered clouds': 'Облачно с прояснениями',
+      'broken clouds': 'Облачно',
+      'overcast clouds': 'Пасмурно',
+      'light rain': 'Небольшой дождь',
+      'moderate rain': 'Дождь',
+      'heavy rain': 'Сильный дождь',
+      'thunderstorm': 'Гроза',
+      'snow': 'Снег',
+      'mist': 'Туман',
+      'haze': 'Дымка',
     };
     return translations[condition] || condition;
   };
@@ -88,7 +88,6 @@ export default function FlightDetail() {
     return `${hours} ч ${minutes} мин`;
   };
 
-  // Реальный расчёт пунктуальности
   const calculatePunctuality = () => {
     if (flight.status === 'delayed' && flight.estimated_departure && flight.scheduled_departure) {
       const delayMs = new Date(flight.estimated_departure) - new Date(flight.scheduled_departure);
@@ -123,12 +122,11 @@ export default function FlightDetail() {
         ← Назад к поиску
       </Link>
 
-      {/* Основная информация */}
       <div className="card" style={{ padding: '24px', marginBottom: '20px' }}>
         <div className="detail-header">
           <div>
             <div className="airline-logo" style={{ width: '48px', height: '48px', fontSize: '1.3rem', marginBottom: '8px' }}>
-              {flight.airline[0]}
+              {flight.airline?.[0] || 'A'}
             </div>
             <h2>{flight.airline}</h2>
             <p style={{ color: 'var(--text-secondary)' }}>Рейс {flight.flight_number}</p>
@@ -148,7 +146,6 @@ export default function FlightDetail() {
         </div>
       </div>
 
-      {/* Маршрут и время */}
       <div className="card" style={{ padding: '24px', marginBottom: '20px' }}>
         <h3>Маршрут</h3>
         <div className="route-timeline">
@@ -184,40 +181,20 @@ export default function FlightDetail() {
       </div>
 
       <div className="detail-grid">
-        {/* Информация о самолёте */}
         <div className="card" style={{ padding: '20px' }}>
-          <h3>✈ О самолёте</h3>
+          <h3>О самолёте</h3>
           <div className="info-list">
-            <div className="info-item">
-              <span>Модель</span>
-              <span>Boeing 737-800</span>
-            </div>
-            <div className="info-item">
-              <span>Регистрация</span>
-              <span>RA-12345</span>
-            </div>
-            <div className="info-item">
-              <span>Возраст</span>
-              <span>5.2 года</span>
-            </div>
-            <div className="info-item">
-              <span>Схема салона</span>
-              <span>3-3 (эконом)</span>
-            </div>
-            <div className="info-item">
-              <span>Крейсерская скорость</span>
-              <span>850 км/ч</span>
-            </div>
-            <div className="info-item">
-              <span>Дальность полёта</span>
-              <span>5 500 км</span>
-            </div>
+            <div className="info-item"><span>Модель</span><span>Boeing 737-800</span></div>
+            <div className="info-item"><span>Регистрация</span><span>RA-12345</span></div>
+            <div className="info-item"><span>Возраст</span><span>5.2 года</span></div>
+            <div className="info-item"><span>Схема салона</span><span>3-3 (эконом)</span></div>
+            <div className="info-item"><span>Крейсерская скорость</span><span>850 км/ч</span></div>
+            <div className="info-item"><span>Дальность полёта</span><span>5 500 км</span></div>
           </div>
         </div>
 
-        {/* Погода */}
         <div className="card" style={{ padding: '20px' }}>
-          <h3>🌤 Погода в {flight.destination}</h3>
+          <h3>Погода в {flight.destination}</h3>
           {weatherLoading ? (
             <p>Загрузка погоды...</p>
           ) : weather ? (
@@ -232,98 +209,42 @@ export default function FlightDetail() {
                 )}
                 <div>
                   <div style={{ fontSize: '2.5rem', fontWeight: '700' }}>{weather.temp}°C</div>
-                  <div style={{ color: 'var(--text-secondary)', textTransform: 'capitalize' }}>
-                    {translateWeather(weather.condition)}
-                  </div>
+                  <div style={{ color: 'var(--text-secondary)', textTransform: 'capitalize' }}>{translateWeather(weather.condition)}</div>
                 </div>
               </div>
               <div className="info-list" style={{ marginTop: '12px' }}>
-                <div className="info-item">
-                  <span>Ощущается как</span>
-                  <span>{weather.feelsLike}°C</span>
-                </div>
-                <div className="info-item">
-                  <span>Влажность</span>
-                  <span>{weather.humidity}%</span>
-                </div>
-                <div className="info-item">
-                  <span>Ветер</span>
-                  <span>{weather.wind} м/с</span>
-                </div>
-                <div className="info-item">
-                  <span>Давление</span>
-                  <span>{weather.pressure} гПа</span>
-                </div>
-                <div className="info-item">
-                  <span>Видимость</span>
-                  <span>{weather.visibility ? `${(weather.visibility / 1000).toFixed(1)} км` : 'Н/Д'}</span>
-                </div>
-                <div className="info-item">
-                  <span>Облачность</span>
-                  <span>{weather.clouds}%</span>
-                </div>
+                <div className="info-item"><span>Ощущается как</span><span>{weather.feelsLike}°C</span></div>
+                <div className="info-item"><span>Влажность</span><span>{weather.humidity}%</span></div>
+                <div className="info-item"><span>Ветер</span><span>{weather.wind} м/с</span></div>
+                <div className="info-item"><span>Давление</span><span>{weather.pressure} гПа</span></div>
+                <div className="info-item"><span>Видимость</span><span>{weather.visibility ? `${(weather.visibility / 1000).toFixed(1)} км` : 'Н/Д'}</span></div>
+                <div className="info-item"><span>Облачность</span><span>{weather.clouds}%</span></div>
               </div>
-              {weatherError && (
-                <p style={{ fontSize: '0.8rem', color: 'var(--text-light)', marginTop: '8px' }}>
-                  * Показаны примерные данные
-                </p>
-              )}
+              {weatherError && <p style={{ fontSize: '0.8rem', color: 'var(--text-light)', marginTop: '8px' }}>* Показаны примерные данные</p>}
             </div>
-          ) : (
-            <p>Не удалось загрузить погоду</p>
-          )}
+          ) : <p>Не удалось загрузить погоду</p>}
         </div>
 
-        {/* Пунктуальность */}
         <div className="card" style={{ padding: '20px' }}>
-          <h3>📊 Статистика рейса</h3>
+          <h3>Статистика рейса</h3>
           <div className="punctuality-meter">
             <div className="meter-label">Пунктуальность</div>
-            <div className="meter-bar">
-              <div 
-                className="meter-fill" 
-                style={{ 
-                  width: punctualityData.percent,
-                  background: punctualityData.color
-                }}
-              ></div>
-            </div>
-            <div className="meter-value" style={{ color: punctualityData.color }}>
-              {punctualityData.percent}
-            </div>
+            <div className="meter-bar"><div className="meter-fill" style={{ width: punctualityData.percent, background: punctualityData.color }}></div></div>
+            <div className="meter-value" style={{ color: punctualityData.color }}>{punctualityData.percent}</div>
           </div>
           <div className="info-list" style={{ marginTop: '12px' }}>
-            <div className="info-item">
-              <span>Рейтинг пунктуальности</span>
-              <span style={{ color: punctualityData.color, fontWeight: '600' }}>
-                {punctualityData.rating}
-              </span>
-            </div>
-            {punctualityData.delay > 0 && (
-              <div className="info-item">
-                <span>Задержка</span>
-                <span>{punctualityData.delay} мин</span>
-              </div>
-            )}
-            <div className="info-item">
-              <span>Багаж</span>
-              <span>{flight.baggage_status && flight.baggage_status !== 'not_checked' ? flight.baggage_status : 'Включён в стоимость'}</span>
-            </div>
-            <div className="info-item">
-              <span>Питание на борту</span>
-              <span>Включено</span>
-            </div>
+            <div className="info-item"><span>Рейтинг пунктуальности</span><span style={{ color: punctualityData.color, fontWeight: '600' }}>{punctualityData.rating}</span></div>
+            {punctualityData.delay > 0 && <div className="info-item"><span>Задержка</span><span>{punctualityData.delay} мин</span></div>}
+            <div className="info-item"><span>Багаж</span><span>{flight.baggage_status && flight.baggage_status !== 'not_checked' ? flight.baggage_status : 'Включён в стоимость'}</span></div>
+            <div className="info-item"><span>Питание на борту</span><span>Включено</span></div>
           </div>
         </div>
 
-        {/* Покупка */}
         <div className="card" style={{ padding: '20px', textAlign: 'center' }}>
           <h3>Готовы к полёту?</h3>
-          <div style={{ fontSize: '2rem', fontWeight: '700', color: 'var(--primary)', margin: '12px 0' }}>
-            {flight.price?.toLocaleString()} ₽
-          </div>
+          <div style={{ fontSize: '2rem', fontWeight: '700', color: 'var(--primary)', margin: '12px 0' }}>{flight.price?.toLocaleString()} ₽</div>
           <p style={{ color: 'var(--text-secondary)', marginBottom: '12px' }}>
-            Осталось {flight.free_seats} мест из 30
+            Осталось {flight.free_seats} мест из {flight.capacity || 30}
           </p>
           <button 
             className="btn btn-secondary" 
@@ -331,8 +252,7 @@ export default function FlightDetail() {
             disabled={flight.status !== 'scheduled' && flight.status !== 'boarding' && flight.status !== 'delayed'}
           >
             {flight.status === 'scheduled' || flight.status === 'boarding' || flight.status === 'delayed' 
-              ? 'Выбрать место и купить' 
-              : 'Продажа закрыта'}
+              ? 'Выбрать место и купить' : 'Продажа закрыта'}
           </button>
         </div>
       </div>
