@@ -15,6 +15,14 @@ class User(Base):
     bonuses = Column(Integer, default=0)
     pending_bonuses = Column(Integer, default=0)
 
+class Aircraft(Base):
+    __tablename__ = "aircraft"
+    id = Column(Integer, primary_key=True, index=True)
+    registration = Column(String, unique=True, nullable=False)
+    model = Column(String, nullable=False)
+    capacity = Column(Integer, nullable=False)
+    status = Column(String, default="on_line")
+
 class Flight(Base):
     __tablename__ = "flights"
     id = Column(Integer, primary_key=True, index=True)
@@ -28,8 +36,11 @@ class Flight(Base):
     estimated_arrival = Column(DateTime)
     status = Column(String, default="scheduled")
     free_seats = Column(Integer, default=30)
+    capacity = Column(Integer, default=30)
     price = Column(Float, default=5000.0)
     stopovers = Column(JSON, default=[])
+    actual_departure = Column(DateTime, nullable=True)
+    actual_arrival = Column(DateTime, nullable=True)
 
 class Ticket(Base):
     __tablename__ = "tickets"
