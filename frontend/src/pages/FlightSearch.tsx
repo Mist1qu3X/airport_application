@@ -1,8 +1,8 @@
-// src/pages/FlightSearch.tsx
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faPlane } from '@fortawesome/free-solid-svg-icons';
+import { useAuth } from '../contexts/AuthContext';
 import FavoriteRoutes from '../pages/FavoriteRoutes';
 
 interface PopularDirection {
@@ -16,10 +16,11 @@ const popularDirections: PopularDirection[] = [
   { from: 'Москва', to: 'Стамбул', price: 8900 },
   { from: 'Санкт-Петербург', to: 'Москва', price: 3500 },
   { from: 'Москва', to: 'Дубай', price: 12500 },
-  { from: 'Москва', to: 'Казань', price: 7800 },
+  { from: 'Новосибирск', to: 'Владивосток', price: 7800 },
 ];
 
 export default function FlightSearch() {
+  const { user } = useAuth();
   const [origin, setOrigin] = useState('');
   const [destination, setDestination] = useState('');
   const [date, setDate] = useState('');
@@ -61,7 +62,8 @@ export default function FlightSearch() {
         </p>
       </div>
 
-      <FavoriteRoutes />
+      {/* Избранные маршруты — только для авторизованных */}
+      {user && <FavoriteRoutes />}
 
       <div className="search-box card">
         <div className="search-inputs">

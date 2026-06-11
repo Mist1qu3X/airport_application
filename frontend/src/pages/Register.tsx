@@ -83,7 +83,7 @@ export default function Register() {
             type="text"
             value={fullName}
             onChange={(e) => setFullName(e.target.value)}
-            placeholder="Как к вам обращаться?"
+            placeholder="Введите имя и фамилию"
           />
         </div>
 

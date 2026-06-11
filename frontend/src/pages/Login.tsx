@@ -39,7 +39,6 @@ export default function Login() {
         <div className="auth-header">
           <h2>Вход в SkyControl</h2>
           <p style={{ color: 'var(--text-secondary)', marginTop: '8px' }}>
-            Войдите, чтобы управлять бронированиями
           </p>
         </div>
 
