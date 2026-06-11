@@ -7,12 +7,12 @@ from email.mime.multipart import MIMEMultipart
 from datetime import datetime, timedelta
 
 # SMTP настройки Mail.ru
-SMTP_HOST = os.getenv("SMTP_HOST", "smtp.mail.ru")
-SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
-SMTP_USER = os.getenv("SMTP_USER", "rturdahunov@bk.ru")
-SMTP_PASS = os.getenv("SMTP_PASS", "mmtRq2emARdxmKawRpHg")
+SMTP_HOST = "smtp.mail.ru"
+SMTP_PORT = 587
+SMTP_USER = "rturdahunov@bk.ru"
+SMTP_PASS = "mmtRq2emARdxmKawRpHg"
 FROM_EMAIL = "rturdahunov@bk.ru"
-APP_URL = os.getenv("APP_URL", "http://localhost:5173")
+APP_URL = "http://localhost:5173"
 
 # Хранилище кодов подтверждения
 email_verification_codes = {}

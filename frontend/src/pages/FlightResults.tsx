@@ -1,10 +1,17 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
-import api from '../api';
-import SeatMap from './SeatMap';
-import PriceCalendar from './PriceCalendar';
+import { flightsApi } from '../api/services';
+import type { Flight, FlightStatus } from '../api/types';
+import SeatMap from '../pages/SeatMap';
+import PriceCalendar from '../pages/PriceCalendar';
+import { formatMoscowDate, formatMoscowTime } from '../utils/date';
 
-const TIME_OPTIONS = [
+interface TimeOption {
+  value: string;
+  label: string;
+}
+
+const TIME_OPTIONS: TimeOption[] = [
   { value: 'any', label: 'Любое' },
   { value: 'morning', label: 'Утро (6:00-12:00)' },
   { value: 'day', label: 'День (12:00-18:00)' },
@@ -12,35 +19,53 @@ const TIME_OPTIONS = [
   { value: 'night', label: 'Ночь (0:00-6:00)' },
 ];
 
+type SortBy = 'price' | 'time' | 'duration';
+
 export default function FlightResults() {
   const [searchParams] = useSearchParams();
-  const [flights, setFlights] = useState([]);
-  const [allFlights, setAllFlights] = useState([]);
-  const [selectedFlight, setSelectedFlight] = useState(null);
-  const [sortBy, setSortBy] = useState('price');
+  const [allFlights, setAllFlights] = useState<Flight[]>([]);
+  const [selectedFlight, setSelectedFlight] = useState<Flight | null>(null);
+  const [sortBy, setSortBy] = useState<SortBy>('price');
   const [loading, setLoading] = useState(true);
   
   const [priceMin, setPriceMin] = useState('');
   const [priceMax, setPriceMax] = useState('');
   const [timeFilter, setTimeFilter] = useState('any');
   const [maxStops, setMaxStops] = useState('any');
-  const [airlines, setAirlines] = useState([]);
-  const [selectedAirlines, setSelectedAirlines] = useState([]);
+  const [selectedAirlines, setSelectedAirlines] = useState<string[]>([]);
   const [showFilters, setShowFilters] = useState(false);
 
   useEffect(() => {
-    setLoading(true);
-    api.get('/api/flights', { params: Object.fromEntries(searchParams) })
-      .then(res => {
-        setAllFlights(res.data);
-        const uniqueAirlines = [...new Set(res.data.map(f => f.airline))];
-        setAirlines(uniqueAirlines);
-      })
-      .catch(console.error)
-      .finally(() => setLoading(false));
+    loadFlights();
   }, [searchParams]);
 
-  useEffect(() => {
+  const loadFlights = async () => {
+    setLoading(true);
+    try {
+      const params: Record<string, string> = {};
+      const origin = searchParams.get('origin');
+      const destination = searchParams.get('destination');
+      const date = searchParams.get('date');
+      
+      if (origin) params.origin = origin;
+      if (destination) params.destination = destination;
+      if (date) params.date = date;
+      
+      const data = await flightsApi.search(params);
+      setAllFlights(data);
+    } catch (error) {
+      console.error('Ошибка загрузки рейсов:', error);
+      setAllFlights([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const airlines = useMemo(() => {
+    return [...new Set(allFlights.map(f => f.airline))];
+  }, [allFlights]);
+
+  const flights = useMemo(() => {
     let filtered = [...allFlights];
 
     if (priceMin) filtered = filtered.filter(f => f.price >= Number(priceMin));
@@ -61,9 +86,10 @@ export default function FlightResults() {
 
     if (maxStops !== 'any') {
       filtered = filtered.filter(f => {
-        if (maxStops === '0') return !f.stopovers || f.stopovers.length === 0;
-        if (maxStops === '1') return f.stopovers && f.stopovers.length === 1;
-        if (maxStops === '2') return f.stopovers && f.stopovers.length >= 2;
+        const stopsCount = f.stopovers?.length || 0;
+        if (maxStops === '0') return stopsCount === 0;
+        if (maxStops === '1') return stopsCount === 1;
+        if (maxStops === '2') return stopsCount >= 2;
         return true;
       });
     }
@@ -72,17 +98,25 @@ export default function FlightResults() {
       filtered = filtered.filter(f => selectedAirlines.includes(f.airline));
     }
 
-    if (sortBy === 'price') filtered.sort((a, b) => a.price - b.price);
-    if (sortBy === 'time') filtered.sort((a, b) => new Date(a.scheduled_departure) - new Date(b.scheduled_departure));
-    if (sortBy === 'duration') {
-      filtered.sort((a, b) => {
-        const durA = new Date(a.scheduled_arrival) - new Date(a.scheduled_departure);
-        const durB = new Date(b.scheduled_arrival) - new Date(b.scheduled_departure);
-        return durA - durB;
-      });
+    switch (sortBy) {
+      case 'price':
+        filtered.sort((a, b) => a.price - b.price);
+        break;
+      case 'time':
+        filtered.sort((a, b) => 
+          new Date(a.scheduled_departure).getTime() - new Date(b.scheduled_departure).getTime()
+        );
+        break;
+      case 'duration':
+        filtered.sort((a, b) => {
+          const durA = new Date(a.scheduled_arrival).getTime() - new Date(a.scheduled_departure).getTime();
+          const durB = new Date(b.scheduled_arrival).getTime() - new Date(b.scheduled_departure).getTime();
+          return durA - durB;
+        });
+        break;
     }
 
-    setFlights(filtered);
+    return filtered;
   }, [allFlights, priceMin, priceMax, timeFilter, maxStops, selectedAirlines, sortBy]);
 
   const resetFilters = () => {
@@ -94,17 +128,15 @@ export default function FlightResults() {
     setSortBy('price');
   };
 
-  const toggleAirline = (airline) => {
+  const toggleAirline = (airline: string) => {
     setSelectedAirlines(prev => 
       prev.includes(airline) ? prev.filter(a => a !== airline) : [...prev, airline]
     );
   };
 
-  const formatTime = (iso) => new Date(iso).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
-  const formatDate = (iso) => new Date(iso).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', weekday: 'short' });
-  const duration = (dep, arr) => {
-    const depTime = new Date(dep);
-    const arrTime = new Date(arr);
+  const getDuration = (dep: string, arr: string): string => {
+    const depTime = new Date(dep).getTime();
+    const arrTime = new Date(arr).getTime();
     let diffMs = arrTime - depTime;
     if (diffMs < 0) diffMs += 24 * 60 * 60 * 1000;
     const hours = Math.floor(diffMs / 3600000);
@@ -112,28 +144,42 @@ export default function FlightResults() {
     return `${hours} ч ${minutes} мин`;
   };
 
+  const getStatusClass = (status: FlightStatus): string => {
+    switch (status) {
+      case 'scheduled': return 'status-ok';
+      case 'boarding': return 'status-warn';
+      case 'delayed': return 'status-bad';
+      case 'departed': return 'status-ok';
+      case 'landed': return 'status-ok';
+      case 'cancelled': return 'status-bad';
+      default: return '';
+    }
+  };
+
+  const getStatusText = (status: FlightStatus): string => {
+    switch (status) {
+      case 'scheduled': return 'По расписанию';
+      case 'boarding': return 'Посадка';
+      case 'delayed': return 'Задержан';
+      case 'departed': return 'Вылетел';
+      case 'landed': return 'Прибыл';
+      case 'cancelled': return 'Отменён';
+      default: return status;
+    }
+  };
+
   return (
     <div className="results-page animate-slide-up">
       <div className="results-header">
         <h2>Результаты поиска ({flights.length})</h2>
         <div className="sort-buttons">
-          <button className={`sort-btn ${sortBy === 'price' ? 'active' : ''}`} onClick={() => setSortBy('price')}>
-            Самые дешёвые
-          </button>
-          <button className={`sort-btn ${sortBy === 'time' ? 'active' : ''}`} onClick={() => setSortBy('time')}>
-            По времени
-          </button>
-          <button className={`sort-btn ${sortBy === 'duration' ? 'active' : ''}`} onClick={() => setSortBy('duration')}>
-            По длительности
-          </button>
+          <button className={`sort-btn ${sortBy === 'price' ? 'active' : ''}`} onClick={() => setSortBy('price')}>Самые дешёвые</button>
+          <button className={`sort-btn ${sortBy === 'time' ? 'active' : ''}`} onClick={() => setSortBy('time')}>По времени</button>
+          <button className={`sort-btn ${sortBy === 'duration' ? 'active' : ''}`} onClick={() => setSortBy('duration')}>По длительности</button>
         </div>
       </div>
 
-      <button 
-        className="btn btn-outline" 
-        style={{ marginBottom: '12px' }}
-        onClick={() => setShowFilters(!showFilters)}
-      >
+      <button className="btn btn-outline" style={{ marginBottom: '12px' }} onClick={() => setShowFilters(!showFilters)}>
         {showFilters ? 'Скрыть фильтры ▲' : 'Фильтры ▼'}
       </button>
 
@@ -147,7 +193,6 @@ export default function FlightResults() {
                 <input type="number" placeholder="До" value={priceMax} onChange={e => setPriceMax(e.target.value)} style={{ width: '100%' }} />
               </div>
             </div>
-
             <div className="filter-group">
               <label>Время вылета</label>
               <select value={timeFilter} onChange={e => setTimeFilter(e.target.value)}>
@@ -156,7 +201,6 @@ export default function FlightResults() {
                 ))}
               </select>
             </div>
-
             <div className="filter-group">
               <label>Пересадки</label>
               <select value={maxStops} onChange={e => setMaxStops(e.target.value)}>
@@ -192,25 +236,20 @@ export default function FlightResults() {
         </div>
       )}
 
-      {/* Календарь цен */}
       {searchParams.get('origin') && searchParams.get('destination') && (
         <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '20px' }}>
-          <PriceCalendar 
-            origin={searchParams.get('origin')} 
-            destination={searchParams.get('destination')} 
-          />
+          <PriceCalendar origin={searchParams.get('origin')!} destination={searchParams.get('destination')!} />
         </div>
       )}
 
-      {/* Скелетоны при загрузке */}
       {loading ? (
         <div className="flights-list">
-          {[1,2,3].map(i => (
+          {[1, 2, 3].map(i => (
             <div key={i} className="skeleton-card card">
-              <div className="skeleton-line" style={{ width: '30%' }}></div>
-              <div className="skeleton-line" style={{ width: '60%' }}></div>
-              <div className="skeleton-line" style={{ width: '40%' }}></div>
-              <div className="skeleton-line" style={{ width: '50%' }}></div>
+              <div className="skeleton-line" style={{ width: '30%' }} />
+              <div className="skeleton-line" style={{ width: '60%' }} />
+              <div className="skeleton-line" style={{ width: '40%' }} />
+              <div className="skeleton-line" style={{ width: '50%' }} />
             </div>
           ))}
         </div>
@@ -233,26 +272,26 @@ export default function FlightResults() {
                 </div>
                 <div className="flight-times">
                   <div className="departure">
-                    <div className="time">{formatTime(f.scheduled_departure)}</div>
+                    <div className="time">{formatMoscowTime(f.scheduled_departure)}</div>
                     <div className="city">{f.origin}</div>
-                    <div className="date">{formatDate(f.scheduled_departure)}</div>
+                    <div className="date">{formatMoscowDate(f.scheduled_departure)}</div>
                   </div>
                   <div className="duration-line">
-                    <div className="duration">{duration(f.scheduled_departure, f.scheduled_arrival)}</div>
-                    <div className="line"></div>
+                    <div className="duration">{getDuration(f.scheduled_departure, f.scheduled_arrival)}</div>
+                    <div className="line" />
                     {f.stopovers && f.stopovers.length > 0 && (
-                      <div className="stops">{f.stopovers.length} пересадка</div>
+                      <div className="stops">{f.stopovers.length} {f.stopovers.length === 1 ? 'пересадка' : 'пересадки'}</div>
                     )}
                   </div>
                   <div className="arrival">
-                    <div className="time">{formatTime(f.scheduled_arrival)}</div>
+                    <div className="time">{formatMoscowTime(f.scheduled_arrival)}</div>
                     <div className="city">{f.destination}</div>
-                    <div className="date">{formatDate(f.scheduled_arrival)}</div>
+                    <div className="date">{formatMoscowDate(f.scheduled_arrival)}</div>
                   </div>
                 </div>
                 <div className="flight-status">
-                  <span className={`status-badge status-${f.status === 'scheduled' ? 'ok' : f.status === 'boarding' ? 'warn' : 'bad'}`}>
-                    {f.status === 'scheduled' ? 'По расписанию' : f.status === 'boarding' ? 'Посадка' : f.status}
+                  <span className={`status-badge ${getStatusClass(f.status)}`}>
+                    {getStatusText(f.status)}
                   </span>
                   <div className="seats">{f.free_seats} мест</div>
                 </div>
@@ -260,12 +299,8 @@ export default function FlightResults() {
               <div className="flight-price">
                 <div className="price-amount">{f.price.toLocaleString()} ₽</div>
                 <div className="price-hint">за одного пассажира</div>
-                <Link to={`/flight/${f.id}`} className="btn btn-outline btn-sm" style={{ marginRight: '8px' }}>
-                  Подробнее
-                </Link>
-                <button className="btn btn-secondary btn-sm" onClick={() => setSelectedFlight(f)}>
-                  Выбрать
-                </button>
+                <Link to={`/flight/${f.id}`} className="btn btn-outline btn-sm" style={{ marginRight: '8px' }}>Подробнее</Link>
+                <button className="btn btn-secondary btn-sm" onClick={() => setSelectedFlight(f)}>Выбрать</button>
               </div>
             </div>
           ))}

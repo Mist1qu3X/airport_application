@@ -1,15 +1,22 @@
+// src/pages/FlightSearch.tsx
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faPlane } from '@fortawesome/free-solid-svg-icons';
-import FavoriteRoutes from './FavoriteRoutes';
+import FavoriteRoutes from '../pages/FavoriteRoutes';
 
-const popularDirections = [
+interface PopularDirection {
+  from: string;
+  to: string;
+  price: number;
+}
+
+const popularDirections: PopularDirection[] = [
   { from: 'Москва', to: 'Сочи', price: 4200 },
   { from: 'Москва', to: 'Стамбул', price: 8900 },
   { from: 'Санкт-Петербург', to: 'Москва', price: 3500 },
   { from: 'Москва', to: 'Дубай', price: 12500 },
-  { from: 'Новосибирск', to: 'Владивосток', price: 7800 },
+  { from: 'Москва', to: 'Казань', price: 7800 },
 ];
 
 export default function FlightSearch() {
@@ -26,7 +33,7 @@ export default function FlightSearch() {
     if (origin) params.set('origin', origin);
     if (destination) params.set('destination', destination);
     if (date) params.set('date', date);
-    if (passengers > 1) params.set('passengers', passengers);
+    if (passengers > 1) params.set('passengers', String(passengers));
     
     setTimeout(() => {
       navigate(`/results?${params.toString()}`);
@@ -49,7 +56,9 @@ export default function FlightSearch() {
           </span>
           Поиск дешёвых авиабилетов
         </h1>
-        <p className="search-subtitle">Сравните цены на авиабилеты и найдите лучшие предложения</p>
+        <p className="search-subtitle">
+          Сравните цены на авиабилеты и найдите лучшие предложения
+        </p>
       </div>
 
       <FavoriteRoutes />
@@ -57,26 +66,63 @@ export default function FlightSearch() {
       <div className="search-box card">
         <div className="search-inputs">
           <div className="search-field">
-            <label>Откуда</label>
-            <input placeholder="Город или аэропорт" value={origin} onChange={e => setOrigin(e.target.value)} />
+            <label htmlFor="origin">Откуда</label>
+            <input
+              id="origin"
+              placeholder="Город или аэропорт"
+              value={origin}
+              onChange={e => setOrigin(e.target.value)}
+            />
           </div>
-          <button className="swap-btn" onClick={swap} title="Поменять местами">⇄</button>
+          
+          <button 
+            className="swap-btn" 
+            onClick={swap} 
+            title="Поменять местами"
+            type="button"
+          >
+            ⇄
+          </button>
+          
           <div className="search-field">
-            <label>Куда</label>
-            <input placeholder="Город или аэропорт" value={destination} onChange={e => setDestination(e.target.value)} />
+            <label htmlFor="destination">Куда</label>
+            <input
+              id="destination"
+              placeholder="Город или аэропорт"
+              value={destination}
+              onChange={e => setDestination(e.target.value)}
+            />
           </div>
+          
           <div className="search-field">
-            <label>Дата вылета</label>
-            <input type="date" value={date} onChange={e => setDate(e.target.value)} />
+            <label htmlFor="date">Дата вылета</label>
+            <input
+              id="date"
+              type="date"
+              value={date}
+              onChange={e => setDate(e.target.value)}
+            />
           </div>
+          
           <div className="search-field">
-            <label>Пассажиры</label>
-            <select value={passengers} onChange={e => setPassengers(e.target.value)}>
-              {[1,2,3,4,5].map(n => <option key={n} value={n}>{n} пассажир</option>)}
+            <label htmlFor="passengers">Пассажиры</label>
+            <select
+              id="passengers"
+              value={passengers}
+              onChange={e => setPassengers(Number(e.target.value))}
+            >
+              {[1, 2, 3, 4, 5].map(n => (
+                <option key={n} value={n}>{n} пассажир</option>
+              ))}
             </select>
           </div>
         </div>
-        <button className="btn btn-secondary search-btn" onClick={handleSearch} disabled={isSearching}>
+        
+        <button 
+          className="btn btn-secondary search-btn" 
+          onClick={handleSearch} 
+          disabled={isSearching}
+        >
           {isSearching ? 'Ищем...' : 'Найти билеты'}
         </button>
       </div>
@@ -85,12 +131,16 @@ export default function FlightSearch() {
         <h2 className="section-title">Популярные направления</h2>
         <div className="popular-grid">
           {popularDirections.map((d, i) => (
-            <div key={i} className="popular-card card" onClick={() => {
-              setOrigin(d.from);
-              setDestination(d.to);
-            }}>
+            <div 
+              key={i} 
+              className="popular-card card" 
+              onClick={() => {
+                setOrigin(d.from);
+                setDestination(d.to);
+              }}
+            >
               <div className="popular-route">{d.from} → {d.to}</div>
-              <div className="popular-price">от {d.price} ₽</div>
+              <div className="popular-price">от {d.price.toLocaleString()} ₽</div>
               <div className="popular-hint">Найти билеты →</div>
             </div>
           ))}

@@ -1,75 +1,98 @@
+// src/components/SeatMap.tsx
 import { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { toast } from 'react-toastify';
-import api from '../api';
+import { ticketsApi } from '../api/services';
 import { useAuth } from '../contexts/AuthContext';
+import type { Flight } from '../api/types';
+
+interface SeatMapProps {
+  flight: Flight;
+  onClose: () => void;
+}
+
+interface SelectedSeat {
+  row: number;
+  letter: string;
+  price: number;
+}
 
 const BUSINESS_ROWS = [1, 2, 3, 4];
-const EXTRA_LEGROOM_SEATS = ['5A', '5B', '5C', '5D', '5E', '5F', '12A', '12B', '12C', '12D', '12E', '12F'];
+const EXTRA_LEGROOM_SEATS = [
+  '5A', '5B', '5C', '5D', '5E', '5F',
+  '12A', '12B', '12C', '12D', '12E', '12F'
+];
 const BUSINESS_PRICE_MULTIPLIER = 1.5;
 const EXTRA_LEGROOM_MULTIPLIER = 1.2;
 
-export default function SeatMap({ flight, onClose }) {
+const COLS = 6;
+const LETTERS = ['A', 'B', 'C', 'D', 'E', 'F'];
+
+export default function SeatMap({ flight, onClose }: SeatMapProps) {
   const { user } = useAuth();
-  const [selectedSeat, setSelectedSeat] = useState(null);
+  const [selectedSeat, setSelectedSeat] = useState<SelectedSeat | null>(null);
   const [useBonuses, setUseBonuses] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const totalSeats = flight.capacity || 30;
-  const rowsCount = Math.ceil(totalSeats / 6);
-  const rows = [...Array(rowsCount).keys()].map(i => i + 1);
+  const rowsCount = Math.ceil(totalSeats / COLS);
+  const rows = Array.from({ length: rowsCount }, (_, i) => i + 1);
 
-  const cols = 6;
-  const letters = ['A', 'B', 'C', 'D', 'E', 'F'];
-
-  // Получаем номера уже купленных мест
   const soldSeats = flight.sold_seats || [];
   
-  const isBusinessRow = (row) => BUSINESS_ROWS.includes(row);
-  const isExtraLegroomSeat = (row, letter) => EXTRA_LEGROOM_SEATS.includes(`${row}${letter}`);
-  const getSeatPrice = (row) => {
-    let basePrice = flight.price;
+  const isBusinessRow = (row: number): boolean => BUSINESS_ROWS.includes(row);
+  
+  const isExtraLegroomSeat = (row: number, letter: string): boolean => 
+    EXTRA_LEGROOM_SEATS.includes(`${row}${letter}`);
+  
+  const getSeatPrice = (row: number): number => {
+    const basePrice = flight.price;
     if (isBusinessRow(row)) return Math.round(basePrice * BUSINESS_PRICE_MULTIPLIER);
-    if (isExtraLegroomSeat(row, 'A')) return Math.round(basePrice * EXTRA_LEGROOM_MULTIPLIER);
+    if (LETTERS.some(l => isExtraLegroomSeat(row, l))) return Math.round(basePrice * EXTRA_LEGROOM_MULTIPLIER);
     return basePrice;
   };
 
-  const seatExists = (row, letter) => {
-    const seatNumber = (row - 1) * cols + letters.indexOf(letter) + 1;
+  const seatExists = (row: number, letter: string): boolean => {
+    const seatNumber = (row - 1) * COLS + LETTERS.indexOf(letter) + 1;
     return seatNumber <= totalSeats;
   };
 
-  const getSeatNumber = (row, letter) => (row - 1) * cols + letters.indexOf(letter) + 1;
+  const getSeatNumber = (row: number, letter: string): number => 
+    (row - 1) * COLS + LETTERS.indexOf(letter) + 1;
 
-  // Проверка, занято ли место
-  const isSeatOccupied = (row, letter) => {
+  const isSeatOccupied = (row: number, letter: string): boolean => {
     const seatNum = getSeatNumber(row, letter);
     return soldSeats.includes(seatNum);
   };
 
   const maxBonuses = Math.floor(flight.price * 0.5);
   const bonusesAvailable = user?.bonuses || 0;
+  
   const finalPrice = selectedSeat
     ? useBonuses
-      ? Math.max(0, getSeatPrice(selectedSeat.row) - Math.min(maxBonuses, bonusesAvailable))
-      : getSeatPrice(selectedSeat.row)
+      ? Math.max(0, selectedSeat.price - Math.min(maxBonuses, bonusesAvailable))
+      : selectedSeat.price
     : 0;
 
   const handlePurchase = async () => {
     if (!selectedSeat) return;
+    
     setLoading(true);
     const seatNumber = getSeatNumber(selectedSeat.row, selectedSeat.letter);
+    
     try {
-      const res = await api.post('/api/tickets/purchase', {
+      const res = await ticketsApi.purchase({
         flight_id: flight.id,
         seat_number: seatNumber,
         use_bonuses: useBonuses ? Math.min(maxBonuses, bonusesAvailable) : 0
       });
-      toast.success(`Билет куплен! Начислено бонусов: ${res.data.bonuses_earned}`);
+      
+      toast.success(`Билет куплен! Начислено бонусов: ${res.bonuses_earned}`);
       onClose();
       setTimeout(() => window.location.reload(), 1500);
-    } catch (err) {
-      toast.error(err.response?.data?.detail || 'Ошибка при покупке');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Ошибка при покупке';
+      toast.error(message);
     } finally {
       setLoading(false);
     }
@@ -87,11 +110,11 @@ export default function SeatMap({ flight, onClose }) {
         </div>
 
         <div className="seat-legend">
-          <span><div className="leg free"></div> Свободно</span>
-          <span><div className="leg business-legend"></div> Бизнес</span>
-          <span><div className="leg extra-legroom"></div> Доп. пространство</span>
-          <span><div className="leg selected"></div> Выбрано</span>
-          <span><div className="leg occupied"></div> Занято</span>
+          <span><div className="leg free" /> Свободно</span>
+          <span><div className="leg business-legend" /> Бизнес</span>
+          <span><div className="leg extra-legroom" /> Доп. пространство</span>
+          <span><div className="leg selected" /> Выбрано</span>
+          <span><div className="leg occupied" /> Занято</span>
         </div>
 
         <div className="cabin">
@@ -101,17 +124,22 @@ export default function SeatMap({ flight, onClose }) {
               <div key={row} className={`seat-row ${isBiz ? 'business-row' : ''}`}>
                 <div className="row-number">{row}</div>
                 <div className="seat-group">
-                  {letters.slice(0, 3).map(letter => {
-                    if (!seatExists(row, letter)) return <div key={letter} className="seat empty" />;
+                  {LETTERS.slice(0, 3).map(letter => {
+                    if (!seatExists(row, letter)) {
+                      return <div key={letter} className="seat empty" />;
+                    }
+                    
                     const selected = selectedSeat?.row === row && selectedSeat?.letter === letter;
                     const extra = isExtraLegroomSeat(row, letter);
                     const price = getSeatPrice(row);
                     const occupied = isSeatOccupied(row, letter);
+                    
                     return (
                       <div
                         key={letter}
                         className={`seat ${isBiz ? 'business' : ''} ${extra ? 'extra-legroom' : ''} ${selected ? 'selected' : ''} ${occupied ? 'occupied' : ''}`}
                         onClick={() => !occupied && setSelectedSeat({ row, letter, price })}
+                        title={`Место ${row}${letter} • ${price.toLocaleString()} ₽${occupied ? ' (занято)' : ''}`}
                       >
                         <span className="seat-letter">{letter}</span>
                         <span className="seat-price">{price.toLocaleString()} ₽</span>
@@ -119,19 +147,24 @@ export default function SeatMap({ flight, onClose }) {
                     );
                   })}
                 </div>
-                <div className="aisle"></div>
+                <div className="aisle" />
                 <div className="seat-group">
-                  {letters.slice(3, 6).map(letter => {
-                    if (!seatExists(row, letter)) return <div key={letter} className="seat empty" />;
+                  {LETTERS.slice(3, 6).map(letter => {
+                    if (!seatExists(row, letter)) {
+                      return <div key={letter} className="seat empty" />;
+                    }
+                    
                     const selected = selectedSeat?.row === row && selectedSeat?.letter === letter;
                     const extra = isExtraLegroomSeat(row, letter);
                     const price = getSeatPrice(row);
                     const occupied = isSeatOccupied(row, letter);
+                    
                     return (
                       <div
                         key={letter}
                         className={`seat ${isBiz ? 'business' : ''} ${extra ? 'extra-legroom' : ''} ${selected ? 'selected' : ''} ${occupied ? 'occupied' : ''}`}
                         onClick={() => !occupied && setSelectedSeat({ row, letter, price })}
+                        title={`Место ${row}${letter} • ${price.toLocaleString()} ₽${occupied ? ' (занято)' : ''}`}
                       >
                         <span className="seat-letter">{letter}</span>
                         <span className="seat-price">{price.toLocaleString()} ₽</span>
@@ -146,9 +179,15 @@ export default function SeatMap({ flight, onClose }) {
 
         {bonusesAvailable > 0 && (
           <div className="bonus-block">
-            <label>
-              <input type="checkbox" checked={useBonuses} onChange={e => setUseBonuses(e.target.checked)} />
-              Использовать бонусы (до {Math.min(maxBonuses, bonusesAvailable).toLocaleString()} ₽)
+            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+              <input 
+                type="checkbox" 
+                checked={useBonuses} 
+                onChange={e => setUseBonuses(e.target.checked)} 
+              />
+              <span>
+                Использовать бонусы (до {Math.min(maxBonuses, bonusesAvailable).toLocaleString()} ₽)
+              </span>
             </label>
             <p style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
               У вас {bonusesAvailable.toLocaleString()} бонусов
@@ -157,13 +196,19 @@ export default function SeatMap({ flight, onClose }) {
         )}
 
         <div className="modal-actions">
-          <button className="btn btn-outline" onClick={onClose}>Отмена</button>
+          <button className="btn btn-outline" onClick={onClose}>
+            Отмена
+          </button>
           <button 
             className="btn btn-secondary" 
             onClick={handlePurchase} 
             disabled={!selectedSeat || loading}
           >
-            {loading ? 'Покупка...' : selectedSeat ? `Купить за ${finalPrice.toLocaleString()} ₽` : 'Выберите место'}
+            {loading 
+              ? 'Покупка...' 
+              : selectedSeat 
+                ? `Купить за ${finalPrice.toLocaleString()} ₽` 
+                : 'Выберите место'}
           </button>
         </div>
       </div>

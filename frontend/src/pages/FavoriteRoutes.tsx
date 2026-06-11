@@ -1,7 +1,9 @@
+// src/components/FavoriteRoutes.tsx
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import api from '../api';
+import { pricesApi } from '../api/services';
+import type { CalendarPriceDay } from '../api/types';
 
 const POPULAR_CITIES = [
   'Москва', 'Санкт-Петербург', 'Новосибирск', 'Екатеринбург', 'Казань',
@@ -11,60 +13,62 @@ const POPULAR_CITIES = [
   'Краснодар', 'Воронеж', 'Пермь', 'Уфа', 'Омск'
 ];
 
+interface FavoriteRoute {
+  id: number;
+  origin: string;
+  destination: string;
+  createdAt: string;
+  lastPrice: number;
+}
+
 export default function FavoriteRoutes() {
-  const [favorites, setFavorites] = useState(() => {
-    const saved = localStorage.getItem('favoriteRoutes');
-    return saved ? JSON.parse(saved) : [];
+  const [favorites, setFavorites] = useState<FavoriteRoute[]>(() => {
+    try {
+      const saved = localStorage.getItem('favoriteRoutes');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
   });
+  
   const [showAdd, setShowAdd] = useState(false);
   const [newRoute, setNewRoute] = useState({ origin: '', destination: '' });
-  const [suggestions, setSuggestions] = useState({ origin: [], destination: [] });
+  const [suggestions, setSuggestions] = useState<{ origin: string[]; destination: string[] }>({
+    origin: [],
+    destination: []
+  });
+  
   const navigate = useNavigate();
 
   useEffect(() => {
     localStorage.setItem('favoriteRoutes', JSON.stringify(favorites));
   }, [favorites]);
 
-  const isValidCity = (city) => POPULAR_CITIES.some(c => c.toLowerCase() === city.toLowerCase());
+  const isValidCity = (city: string) => 
+    POPULAR_CITIES.some(c => c.toLowerCase() === city.toLowerCase());
 
-  const getSuggestions = (value) => {
+  const getSuggestions = (value: string): string[] => {
     if (value.length < 1) return [];
     return POPULAR_CITIES.filter(city =>
       city.toLowerCase().includes(value.toLowerCase())
     ).slice(0, 5);
   };
 
-  const handleOriginChange = (value) => {
-    setNewRoute({ ...newRoute, origin: value });
-    setSuggestions({ ...suggestions, origin: getSuggestions(value) });
-  };
-
-  const handleDestinationChange = (value) => {
-    setNewRoute({ ...newRoute, destination: value });
-    setSuggestions({ ...suggestions, destination: getSuggestions(value) });
-  };
-
-  const selectSuggestion = (field, city) => {
-    setNewRoute({ ...newRoute, [field]: city });
-    setSuggestions({ ...suggestions, [field]: [] });
-  };
-
-  // Получение минимальной цены по маршруту на текущий месяц
-  const fetchMinPrice = async (origin, destination) => {
+  const fetchMinPrice = async (origin: string, destination: string): Promise<number | null> => {
     try {
       const now = new Date();
-      const res = await api.get('/api/flights/prices', {
-        params: {
-          origin,
-          destination,
-          year: now.getFullYear(),
-          month: now.getMonth() + 1
-        }
+      const data = await pricesApi.getCalendar({
+        origin,
+        destination,
+        year: now.getFullYear(),
+        month: now.getMonth() + 1
       });
-      const prices = res.data.prices || {};
-      if (Object.keys(prices).length === 0) return null;
-      const minPrice = Math.min(...Object.values(prices).map(p => p.min_price));
-      return minPrice;
+      
+      const prices = data.prices || {};
+      const priceValues = Object.values(prices).map((p: CalendarPriceDay) => p.min_price);
+      
+      if (priceValues.length === 0) return null;
+      return Math.min(...priceValues);
     } catch {
       return null;
     }
@@ -78,14 +82,17 @@ export default function FavoriteRoutes() {
       toast.error('Заполните оба поля');
       return;
     }
+    
     if (origin.toLowerCase() === destination.toLowerCase()) {
       toast.error('Город отправления и назначения не могут совпадать');
       return;
     }
+    
     if (!isValidCity(origin)) {
       toast.error(`Город "${origin}" не найден. Выберите из популярных направлений.`);
       return;
     }
+    
     if (!isValidCity(destination)) {
       toast.error(`Город "${destination}" не найден. Выберите из популярных направлений.`);
       return;
@@ -95,19 +102,20 @@ export default function FavoriteRoutes() {
       f => f.origin.toLowerCase() === origin.toLowerCase() &&
         f.destination.toLowerCase() === destination.toLowerCase()
     );
+    
     if (isDuplicate) {
       toast.warning('Этот маршрут уже в избранном');
       return;
     }
 
-    // Получаем реальную минимальную цену
     const minPrice = await fetchMinPrice(origin, destination);
-    const route = {
+    
+    const route: FavoriteRoute = {
       id: Date.now(),
       origin,
       destination,
       createdAt: new Date().toISOString(),
-      lastPrice: minPrice || 0  // если не удалось, ставим 0
+      lastPrice: minPrice || 0
     };
 
     setFavorites([...favorites, route]);
@@ -116,25 +124,26 @@ export default function FavoriteRoutes() {
     toast.success(`Маршрут ${origin} → ${destination} добавлен в избранное`);
   };
 
-  const removeFavorite = (id) => {
+  const removeFavorite = (id: number) => {
     setFavorites(favorites.filter(f => f.id !== id));
     toast.info('Маршрут удалён из избранного');
   };
 
-  const searchRoute = (origin, destination) => {
-    navigate(`/results?origin=${origin}&destination=${destination}`);
+  const searchRoute = (origin: string, destination: string) => {
+    navigate(`/results?origin=${encodeURIComponent(origin)}&destination=${encodeURIComponent(destination)}`);
   };
 
-  const checkPriceChange = async (route) => {
+  const checkPriceChange = async (route: FavoriteRoute) => {
     const currentMinPrice = await fetchMinPrice(route.origin, route.destination);
+    
     if (currentMinPrice === null) {
       toast.info('Не удалось получить актуальную цену');
       return;
     }
 
     const oldPrice = route.lastPrice;
+    
     if (oldPrice === 0) {
-      // Если цена не была известна, просто обновляем
       setFavorites(prev => prev.map(f =>
         f.id === route.id ? { ...f, lastPrice: currentMinPrice } : f
       ));
@@ -143,15 +152,23 @@ export default function FavoriteRoutes() {
     }
 
     const diff = currentMinPrice - oldPrice;
+    
     if (diff < -500) {
-      toast.success(`Цена снизилась на ${Math.abs(diff).toLocaleString()} ₽! Было ${oldPrice.toLocaleString()} → стало ${currentMinPrice.toLocaleString()}`);
+      toast.success(
+        `Цена снизилась на ${Math.abs(diff).toLocaleString()} ₽! ` +
+        `Было ${oldPrice.toLocaleString()} → стало ${currentMinPrice.toLocaleString()}`
+      );
     } else if (diff > 500) {
-      toast.warning(`Цена выросла на ${diff.toLocaleString()} ₽. Было ${oldPrice.toLocaleString()} → стало ${currentMinPrice.toLocaleString()}`);
+      toast.warning(
+        `Цена выросла на ${diff.toLocaleString()} ₽. ` +
+        `Было ${oldPrice.toLocaleString()} → стало ${currentMinPrice.toLocaleString()}`
+      );
     } else {
-      toast.info(`Цена практически не изменилась (${oldPrice.toLocaleString()} → ${currentMinPrice.toLocaleString()})`);
+      toast.info(
+        `Цена практически не изменилась (${oldPrice.toLocaleString()} → ${currentMinPrice.toLocaleString()})`
+      );
     }
 
-    // Обновляем lastPrice
     setFavorites(prev => prev.map(f =>
       f.id === route.id ? { ...f, lastPrice: currentMinPrice } : f
     ));
@@ -173,7 +190,10 @@ export default function FavoriteRoutes() {
               <input
                 placeholder="Откуда (например: Москва)"
                 value={newRoute.origin}
-                onChange={e => handleOriginChange(e.target.value)}
+                onChange={e => {
+                  setNewRoute({ ...newRoute, origin: e.target.value });
+                  setSuggestions({ ...suggestions, origin: getSuggestions(e.target.value) });
+                }}
                 style={{ width: '100%' }}
               />
               {suggestions.origin.length > 0 && (
@@ -182,7 +202,10 @@ export default function FavoriteRoutes() {
                     <div
                       key={city}
                       className="suggestion-item"
-                      onClick={() => selectSuggestion('origin', city)}
+                      onClick={() => {
+                        setNewRoute({ ...newRoute, origin: city });
+                        setSuggestions({ ...suggestions, origin: [] });
+                      }}
                     >
                       {city}
                     </div>
@@ -194,7 +217,10 @@ export default function FavoriteRoutes() {
               <input
                 placeholder="Куда (например: Сочи)"
                 value={newRoute.destination}
-                onChange={e => handleDestinationChange(e.target.value)}
+                onChange={e => {
+                  setNewRoute({ ...newRoute, destination: e.target.value });
+                  setSuggestions({ ...suggestions, destination: getSuggestions(e.target.value) });
+                }}
                 style={{ width: '100%' }}
               />
               {suggestions.destination.length > 0 && (
@@ -203,7 +229,10 @@ export default function FavoriteRoutes() {
                     <div
                       key={city}
                       className="suggestion-item"
-                      onClick={() => selectSuggestion('destination', city)}
+                      onClick={() => {
+                        setNewRoute({ ...newRoute, destination: city });
+                        setSuggestions({ ...suggestions, destination: [] });
+                      }}
                     >
                       {city}
                     </div>
